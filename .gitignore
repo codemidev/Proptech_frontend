@@ -1,0 +1,87 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# Dependencies
+node_modules
+
+# Build output
+dist
+.next
+coverage
+
+# Environment
+.env
+.env.*
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Prisma
+prisma/dev.db
+prisma/dev.db-journal
+ngrok-v3-stable-linux-arm64.zip
+server/prisma/local_sop.txt
+
+# Local development backups / generated patch artifacts
+**/*.bak
+**/*.backup
+**/*.backup_*
+**/*.before-*
+**/.agent-dashboard-backups/
+**/.single-role-backups/
+**/.ts-fix-backups/
+**/landvault-backups/
+/server/dist/
+/tmp/
+
+# Env templates are committed
+!.env.example
+
+# Local backup artifacts
+**/*.bak-*
+**/*.backup-*
+**/*.before-*
+**/*~

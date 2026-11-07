@@ -1,0 +1,709 @@
+@import "tailwindcss";
+
+:root {
+  --font-sans: "Plus Jakarta Sans", "DM Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-dm: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-urb: "Urbanist", ui-sans-serif, system-ui, sans-serif;
+  --background: #ffffff;
+  --foreground: #111111;
+
+  --navy: #050505;
+  --brand-yellow: #facc15;
+  --brand-yellow-dark: #eab308;
+
+  --status-success-fg: #16a34a;
+  --status-success-bg: #dcfce7;
+  --status-pending-fg: #ca8a04;
+  --status-pending-bg: #fef9c3;
+  --status-danger-fg: #dc2626;
+  --status-danger-bg: #fee2e2;
+  --status-info-fg: #2563eb;
+  --status-info-bg: #dbeafe;
+
+  --muted-foreground: #6b7280;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+
+  --color-navy: var(--navy);
+  --color-brand-yellow: var(--brand-yellow);
+  --color-brand-yellow-dark: var(--brand-yellow-dark);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-status-success-fg: var(--status-success-fg);
+  --color-status-success-bg: var(--status-success-bg);
+  --color-status-pending-fg: var(--status-pending-fg);
+  --color-status-pending-bg: var(--status-pending-bg);
+  --color-status-danger-fg: var(--status-danger-fg);
+  --color-status-danger-bg: var(--status-danger-bg);
+  --color-status-info-fg: var(--status-info-fg);
+  --color-status-info-bg: var(--status-info-bg);
+}
+
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  color-scheme: light;
+}
+
+/* Dashboard forms use a consistent readable light-field treatment. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+textarea,
+select {
+  color: #171717;
+  background-color: #ffffff;
+  border-color: #d1d5db;
+  color-scheme: light;
+}
+
+input:disabled,
+textarea:disabled,
+select:disabled {
+  color: #6b7280;
+  background-color: #f3f4f6;
+  cursor: not-allowed;
+}
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid #d4a900;
+  outline-offset: 1px;
+}
+
+input:-webkit-autofill,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-text-fill-color: #171717;
+  box-shadow: 0 0 0 1000px #ffffff inset;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #6b7280;
+  opacity: 1;
+}
+
+option {
+  color: #171717;
+  background-color: #ffffff;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Persistent Aviritech dashboard theme */
+:root {
+  --surface: #ffffff;
+  --surface-muted: #f5f5f5;
+  --border: #e5e5e5;
+  --muted-foreground: #6b7280;
+  --nav-glow: #9ca3af;
+  --color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-scheme: dark;
+  --background: #050505;
+  --foreground: #f5f5f5;
+  --surface: #111111;
+  --surface-muted: #1b1b1b;
+  --border: #333333;
+  --muted-foreground: #b8b8b8;
+  --nav-glow: #333333;
+}
+
+html {
+  color-scheme: var(--color-scheme, light);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+textarea,
+select {
+  color: var(--foreground);
+  background-color: var(--surface);
+  border-color: var(--border);
+  color-scheme: var(--color-scheme, light);
+}
+
+input:disabled,
+textarea:disabled,
+select:disabled {
+  color: var(--muted-foreground);
+  background-color: var(--surface-muted);
+}
+
+input:-webkit-autofill,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-text-fill-color: var(--foreground);
+  box-shadow: 0 0 0 1000px var(--surface) inset;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted-foreground);
+}
+
+option {
+  color: var(--foreground);
+  background-color: var(--surface);
+}
+
+:root[data-theme="dark"] .dashboard-top-app-bar {
+  color: var(--foreground);
+  background-color: var(--surface);
+  border-color: var(--border);
+}
+
+:root[data-theme="dark"] .tenant-bottom-tab-bar {
+  color: var(--foreground);
+  background-color: var(--surface);
+  border-color: var(--border);
+}
+
+
+/* Dark theme support for existing dashboard utility surfaces. */
+:root[data-theme="dark"] .bg-white {
+  background-color: var(--surface) !important;
+}
+
+:root[data-theme="dark"] .bg-gray-50,
+:root[data-theme="dark"] .bg-slate-50,
+:root[data-theme="dark"] .bg-neutral-50,
+:root[data-theme="dark"] .bg-gray-100,
+:root[data-theme="dark"] .bg-slate-100,
+:root[data-theme="dark"] .bg-neutral-100 {
+  background-color: var(--surface-muted) !important;
+}
+
+:root[data-theme="dark"] .text-black,
+:root[data-theme="dark"] .text-slate-950,
+:root[data-theme="dark"] .text-slate-900,
+:root[data-theme="dark"] .text-slate-800,
+:root[data-theme="dark"] .text-gray-900,
+:root[data-theme="dark"] .text-gray-800,
+:root[data-theme="dark"] .text-neutral-950,
+:root[data-theme="dark"] .text-neutral-900,
+:root[data-theme="dark"] .text-neutral-800 {
+  color: var(--foreground) !important;
+}
+
+:root[data-theme="dark"] .border-black\/5,
+:root[data-theme="dark"] .border-black\/10,
+:root[data-theme="dark"] .border-gray-100,
+:root[data-theme="dark"] .border-gray-200,
+:root[data-theme="dark"] .border-slate-100,
+:root[data-theme="dark"] .border-slate-200,
+:root[data-theme="dark"] .border-neutral-100,
+:root[data-theme="dark"] .border-neutral-200 {
+  border-color: var(--border) !important;
+}
+
+
+/* Dashboard footers: solid black in dark mode. */
+:root[data-theme="dark"] .dashboard-shell-footer {
+  color: #f5f5f5 !important;
+  background-color: #050505 !important;
+  border-color: #333333 !important;
+}
+
+:root[data-theme="dark"] .dashboard-shell-footer :is(p, span, a, h1, h2, h3, h4, label) {
+  color: #f5f5f5 !important;
+}
+
+:root[data-theme="dark"] .dashboard-shell-footer svg {
+  color: #facc15 !important;
+  stroke: #facc15 !important;
+}
+
+:root[data-theme="dark"] .tenant-bottom-tab-bar {
+  color: var(--foreground);
+  background-color: #111111 !important;
+  border-top-color: var(--border) !important;
+}
+
+:root[data-theme="dark"] .tenant-bottom-tab-bar a {
+  color: var(--foreground) !important;
+}
+
+:root[data-theme="dark"] .tenant-bottom-tab-bar svg,
+:root[data-theme="dark"] .dashboard-quick-action-card svg {
+  color: #facc15 !important;
+  stroke: #facc15 !important;
+}
+
+/* Aviritech navigation finish and loading priority */
+.dashboard-quick-actions {
+  background-color: color-mix(in srgb, var(--surface) 84%, transparent) !important;
+  border-bottom: 0 !important;
+  box-shadow: none !important;
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+}
+
+/* Keep dashboard navigation behind every existing full-screen loader.
+   The loader itself is not visually modified. */
+body:has([data-app-loading="true"]) .dashboard-quick-actions,
+body:has([data-app-loading="true"]) .tenant-bottom-tab-bar,
+body:has([data-app-loading="true"]) .owner-bottom-tab-bar {
+  display: none !important;
+}
+
+/* Improve secondary text contrast on dark dashboard surfaces. */
+:root[data-theme="dark"] .text-gray-700,
+:root[data-theme="dark"] .text-gray-600,
+:root[data-theme="dark"] .text-slate-700,
+:root[data-theme="dark"] .text-slate-600,
+:root[data-theme="dark"] .text-zinc-700,
+:root[data-theme="dark"] .text-zinc-600,
+:root[data-theme="dark"] .text-neutral-700,
+:root[data-theme="dark"] .text-neutral-600 {
+  color: var(--foreground) !important;
+}
+
+:root[data-theme="dark"] .text-gray-500,
+:root[data-theme="dark"] .text-slate-500,
+:root[data-theme="dark"] .text-zinc-500,
+:root[data-theme="dark"] .text-neutral-500 {
+  color: var(--muted-foreground) !important;
+}
+
+
+
+
+/* Dark-mode text contrast: remove blue and dark text on dark surfaces. */
+:root[data-theme="dark"] .dashboard-content,
+:root[data-theme="dark"] main[class*="dashboard"],
+:root[data-theme="dark"] .dashboard-page {
+  color: #f5f5f5;
+}
+
+:root[data-theme="dark"] :is(
+  .text-blue-700, .text-blue-800, .text-blue-900,
+  .text-indigo-700, .text-indigo-800, .text-indigo-900,
+  .text-cyan-700, .text-cyan-800, .text-cyan-900,
+  .text-sky-700, .text-sky-800, .text-sky-900,
+  .text-teal-700, .text-teal-800, .text-teal-900
+) {
+  color: #f5f5f5 !important;
+}
+
+:root[data-theme="dark"] :is(
+  .text-slate-900, .text-slate-800, .text-slate-700,
+  .text-gray-900, .text-gray-800, .text-gray-700,
+  .text-zinc-900, .text-zinc-800, .text-zinc-700,
+  .text-neutral-900, .text-neutral-800, .text-neutral-700,
+  .text-black
+) {
+  color: #ffffff !important;
+}
+
+:root[data-theme="dark"] :is(
+  .text-slate-600, .text-slate-500,
+  .text-gray-600, .text-gray-500,
+  .text-zinc-600, .text-zinc-500,
+  .text-neutral-600, .text-neutral-500
+) {
+  color: #f5f5f5 !important;
+}
+
+/* Tenant recommended properties: readable text on dark surfaces. */
+:root[data-theme="dark"] .tenant-recommended-section [class*="text-[#111827]"],
+:root[data-theme="dark"] .tenant-recommended-section [class*="text-[#667085]"] {
+  color: #f5f5f5 !important;
+}
+
+:root[data-theme="dark"] .tenant-recommended-section button[aria-pressed="false"] {
+  color: #f5f5f5 !important;
+  border-color: #444444 !important;
+  background-color: #1b1b1b !important;
+}
+
+:root[data-theme="dark"] .tenant-recommended-section button[aria-pressed="true"] {
+  color: #111827 !important;
+  background-color: #ffe114 !important;
+  border-color: #ffe114 !important;
+}
+
+/* Preserve semantic status colors in both themes. */
+:root[data-theme="dark"] .text-status-success-fg {
+  color: var(--status-success-fg) !important;
+}
+:root[data-theme="dark"] .text-status-pending-fg {
+  color: var(--status-pending-fg) !important;
+}
+:root[data-theme="dark"] .text-status-danger-fg {
+  color: var(--status-danger-fg) !important;
+}
+:root[data-theme="dark"] .text-status-info-fg {
+  color: var(--status-info-fg) !important;
+}
+:root[data-theme="dark"] .bg-status-success-bg {
+  background-color: var(--status-success-bg) !important;
+}
+:root[data-theme="dark"] .bg-status-pending-bg {
+  background-color: var(--status-pending-bg) !important;
+}
+:root[data-theme="dark"] .bg-status-danger-bg {
+  background-color: var(--status-danger-bg) !important;
+}
+:root[data-theme="dark"] .bg-status-info-bg {
+  background-color: var(--status-info-bg) !important;
+}
+
+
+/* FORCE DARK APPLICATION CANVAS */
+:root[data-theme="dark"],
+:root[data-theme="dark"] html,
+:root[data-theme="dark"] body,
+:root[data-theme="dark"] body > div,
+:root[data-theme="dark"] #__next,
+:root[data-theme="dark"] main.min-h-screen,
+:root[data-theme="dark"] .min-h-screen.bg-white {
+  background-color: #050505 !important;
+}
+
+:root[data-theme="dark"] body {
+  color: #f5f5f5 !important;
+}
+
+/* White utility backgrounds must not cover the dark page canvas. */
+:root[data-theme="dark"] .bg-white {
+  background-color: #111111 !important;
+}
+
+/* Keep semantic status colors unchanged. */
+
+/* Bright dashboard quick-action cards always use black foregrounds. */
+.dashboard-quick-action-card,
+.dashboard-quick-action-card * {
+  color: #111111 !important;
+}
+
+
+
+
+/* Shared authenticated dashboard navigation theme */
+:root[data-theme="dark"] .dashboard-bottom-navigation {
+  color: #f5f5f5 !important;
+  background-color: #050505 !important;
+  border-color: #333333 !important;
+}
+
+:root[data-theme="dark"] .dashboard-bottom-navigation :is(a, button) {
+  color: #f5f5f5 !important;
+}
+
+:root[data-theme="dark"] .dashboard-bottom-navigation svg {
+  color: #facc15 !important;
+  stroke: #facc15 !important;
+}
+
+:root[data-theme="dark"] .dashboard-section-navigation {
+  background-color: #050505 !important;
+  border-color: #333333 !important;
+}
+
+:root[data-theme="dark"] .dashboard-section-navigation a {
+  color: #f5f5f5 !important;
+}
+
+:root[data-theme="dark"] .dashboard-section-navigation a:hover {
+  background-color: #1b1b1b !important;
+  color: #facc15 !important;
+}
+
+:root[data-theme="dark"] .dashboard-sidebar-navigation {
+  color: #f5f5f5 !important;
+}
+
+:root[data-theme="dark"] .dashboard-sidebar-navigation svg {
+  color: #facc15 !important;
+  stroke: #facc15 !important;
+}
+
+/* Hide all shared dashboard navigation while the app loader is visible. */
+body:has([data-app-loading="true"]) .dashboard-bottom-navigation,
+body:has([data-app-loading="true"]) .dashboard-section-navigation,
+body:has([data-app-loading="true"]) .dashboard-sidebar-navigation {
+  display: none !important;
+}
+
+
+/* Dark-mode contrast safeguard for colored utility text. */
+
+:root[data-theme="dark"] .text-blue-600,
+:root[data-theme="dark"] .text-blue-700,
+:root[data-theme="dark"] .text-blue-800,
+:root[data-theme="dark"] .text-blue-900,
+:root[data-theme="dark"] .text-blue-950 {
+  color: #ffffff !important;
+}
+
+:root[data-theme="dark"] .text-indigo-600,
+:root[data-theme="dark"] .text-indigo-700,
+:root[data-theme="dark"] .text-indigo-800,
+:root[data-theme="dark"] .text-indigo-900,
+:root[data-theme="dark"] .text-indigo-950 {
+  color: #ffffff !important;
+}
+
+:root[data-theme="dark"] .text-cyan-600,
+:root[data-theme="dark"] .text-cyan-700,
+:root[data-theme="dark"] .text-cyan-800,
+:root[data-theme="dark"] .text-cyan-900,
+:root[data-theme="dark"] .text-cyan-950 {
+  color: #ffffff !important;
+}
+
+:root[data-theme="dark"] .text-sky-600,
+:root[data-theme="dark"] .text-sky-700,
+:root[data-theme="dark"] .text-sky-800,
+:root[data-theme="dark"] .text-sky-900,
+:root[data-theme="dark"] .text-sky-950 {
+  color: #ffffff !important;
+}
+
+:root[data-theme="dark"] .text-teal-600,
+:root[data-theme="dark"] .text-teal-700,
+:root[data-theme="dark"] .text-teal-800,
+:root[data-theme="dark"] .text-teal-900,
+:root[data-theme="dark"] .text-teal-950 {
+  color: #ffffff !important;
+}
+
+:root[data-theme="dark"] .text-blue-400,
+:root[data-theme="dark"] .text-blue-500 {
+  color: #f5f5f5 !important;
+}
+
+:root[data-theme="dark"] .text-indigo-400,
+:root[data-theme="dark"] .text-indigo-500 {
+  color: #f5f5f5 !important;
+}
+
+:root[data-theme="dark"] .text-cyan-400,
+:root[data-theme="dark"] .text-cyan-500 {
+  color: #f5f5f5 !important;
+}
+
+:root[data-theme="dark"] .text-sky-400,
+:root[data-theme="dark"] .text-sky-500 {
+  color: #f5f5f5 !important;
+}
+
+:root[data-theme="dark"] .text-teal-400,
+:root[data-theme="dark"] .text-teal-500 {
+  color: #f5f5f5 !important;
+}
+
+
+/* System-wide dashboard text contrast in dark mode. */
+:root[data-theme="dark"] [class*="text-[#111827]"],
+:root[data-theme="dark"] [class*="text-[#101828]"],
+:root[data-theme="dark"] [class*="text-[#1D2939]"] {
+  color: #ffffff !important;
+}
+
+:root[data-theme="dark"] [class*="text-[#667085]"],
+:root[data-theme="dark"] [class*="text-[#6B7280]"],
+:root[data-theme="dark"] [class*="text-[#475467]"] {
+  color: #f5f5f5 !important;
+}
+
+/* Quick Action headings follow the active theme. */
+:root[data-theme="dark"] .dashboard-quick-actions-heading {
+  color: #ffffff !important;
+}
+
+/* Keep the selected yellow filter readable. */
+:root[data-theme="dark"] .tenant-recommended-section button[aria-pressed="true"] {
+  color: #111827 !important;
+}
+
+/* Quick Action card labels: black in both themes. */
+.dashboard-quick-action-card,
+.dashboard-quick-action-card * {
+  color: #111111 !important;
+}
+
+/* Final override: Quick Action card labels stay black in every theme. */
+html body .dashboard-quick-action-card,
+html body .dashboard-quick-action-card *,
+html body .dashboard-quick-action-card :is(span, p, svg) {
+  color: #111111 !important;
+}
+
+
+/* Aviritech agent dashboard contrast and dark-mode corrections */
+.agent-dashboard .text-slate-400,
+.agent-dashboard .text-slate-500 {
+  color: #64748b !important;
+}
+
+:is(.dark, [data-theme="dark"]) .agent-dashboard {
+  background: #0b1220 !important;
+  color: #f8fafc !important;
+}
+
+:is(.dark, [data-theme="dark"]) .agent-dashboard .bg-white,
+:is(.dark, [data-theme="dark"]) .agent-dashboard .bg-slate-50,
+:is(.dark, [data-theme="dark"]) .agent-dashboard .bg-slate-100 {
+  background-color: #152238 !important;
+}
+
+:is(.dark, [data-theme="dark"]) .agent-dashboard .text-slate-900,
+:is(.dark, [data-theme="dark"]) .agent-dashboard .text-slate-800,
+:is(.dark, [data-theme="dark"]) .agent-dashboard .text-slate-700 {
+  color: #f8fafc !important;
+}
+
+:is(.dark, [data-theme="dark"]) .agent-dashboard .text-slate-600,
+:is(.dark, [data-theme="dark"]) .agent-dashboard .text-slate-500,
+:is(.dark, [data-theme="dark"]) .agent-dashboard .text-slate-400 {
+  color: #e2e8f0 !important;
+}
+
+:is(.dark, [data-theme="dark"]) .agent-dashboard .border-slate-100,
+:is(.dark, [data-theme="dark"]) .agent-dashboard .border-slate-200 {
+  border-color: #334155 !important;
+}
+
+:is(.dark, [data-theme="dark"]) .agent-dashboard .text-yellow-600,
+:is(.dark, [data-theme="dark"]) .agent-dashboard .text-yellow-700 {
+  color: #facc15 !important;
+}
+
+
+/* LandVault evidence cards: black text on white surfaces in dark mode. */
+:root[data-theme="dark"] .landvault-evidence-card {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  border-color: #e5e7eb !important;
+}
+
+:root[data-theme="dark"] .landvault-evidence-card *:not(button):not(a) {
+  color: #111827 !important;
+}
+
+:root[data-theme="dark"] .landvault-evidence-card button {
+  color: #dc2626 !important;
+}
+
+:root[data-theme="dark"] .landvault-evidence-card a {
+  color: #1d4ed8 !important;
+}
+
+
+/* LandVault wizard typography and theme contrast */
+.landvault-wizard {
+  color: #111827;
+  font-family: "DM Sans", "Segoe UI", sans-serif;
+}
+
+.landvault-wizard input,
+.landvault-wizard select,
+.landvault-wizard textarea {
+  color: #111827;
+  background-color: #ffffff;
+}
+
+.landvault-wizard input::placeholder,
+.landvault-wizard textarea::placeholder {
+  color: #64748b;
+  opacity: 1;
+}
+
+.landvault-wizard option {
+  color: #111827;
+  background-color: #ffffff;
+}
+
+:root[data-theme="dark"] .landvault-wizard {
+  color: #f8fafc;
+}
+
+:root[data-theme="dark"] .landvault-wizard .bg-white,
+:root[data-theme="dark"] .landvault-wizard section.bg-white {
+  background-color: #111827 !important;
+}
+
+:root[data-theme="dark"] .landvault-wizard :is(
+  .text-slate-900,
+  .text-slate-800,
+  .text-slate-700,
+  .text-slate-600
+) {
+  color: #f8fafc !important;
+}
+
+:root[data-theme="dark"] .landvault-wizard :is(
+  .text-slate-500,
+  .text-slate-400
+) {
+  color: #cbd5e1 !important;
+}
+
+:root[data-theme="dark"] .landvault-wizard input,
+:root[data-theme="dark"] .landvault-wizard select,
+:root[data-theme="dark"] .landvault-wizard textarea {
+  color: #f8fafc !important;
+  background-color: #0b1220 !important;
+  border-color: #475569 !important;
+}
+
+:root[data-theme="dark"] .landvault-wizard input::placeholder,
+:root[data-theme="dark"] .landvault-wizard textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+:root[data-theme="dark"] .landvault-wizard option {
+  color: #f8fafc;
+  background-color: #0b1220;
+}
+
+:root[data-theme="dark"] .landvault-wizard .bg-yellow-50 {
+  background-color: #292313 !important;
+}
+
+:root[data-theme="dark"] .landvault-wizard .bg-yellow-50 :is(
+  .text-slate-900,
+  .text-slate-700,
+  .text-slate-600,
+  .text-slate-500
+) {
+  color: #fef3c7 !important;
+}
+
+:root[data-theme="dark"] .landvault-wizard .border-slate-200 {
+  border-color: #334155 !important;
+}
+
+/* Evidence cards intentionally remain bright with dark readable text. */
+:root[data-theme="dark"] .landvault-wizard .landvault-evidence-card {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  border-color: #e5e7eb !important;
+}
+
+:root[data-theme="dark"] .landvault-wizard .landvault-evidence-card *:not(button):not(a) {
+  color: #111827 !important;
+}
