@@ -27,7 +27,7 @@ export function PropertyMediaStep({
           Property media
         </h1>
         <p className="mt-2 text-sm leading-6 text-slate-500">
-          Upload clear, high-quality photos. The first uploaded photo is used as the featured image.
+          Upload multiple clear, high-quality photos and a short property video. The first photo is used as the featured image.
         </p>
       </div>
 

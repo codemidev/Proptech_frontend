@@ -2,9 +2,16 @@
 
 import { useRef, useState, type ChangeEvent } from "react";
 import type { GetToken } from "@/lib/api";
-import { resolveMediaUrl } from "@/lib/api";
+import { apiFetch, resolveMediaUrl } from "@/lib/api";
 
-type MediaItem = { id: string; url: string; thumbnailUrl: string | null };
+type MediaItem = {
+  id: string;
+  url: string;
+  thumbnailUrl: string | null;
+  type?: string;
+  caption?: string | null;
+  isFeatured?: boolean;
+};
 
 type PropertyImagesProps = {
   propertyId: string;
@@ -13,7 +20,10 @@ type PropertyImagesProps = {
   onChange: () => void;
 };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
+type UploadResponse = {
+  success: boolean;
+  data: MediaItem;
+};
 
 export function PropertyImages({
   propertyId,
@@ -21,119 +31,191 @@ export function PropertyImages({
   getToken,
   onChange,
 }: PropertyImagesProps) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
 
-  async function handleFileSelected(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  async function uploadFiles(files: File[], type: "IMAGE" | "VIDEO") {
+    if (files.length === 0) return;
 
     setUploading(true);
     setError("");
+    let uploadedCount = 0;
 
     try {
-      const token = await getToken();
-      if (!token) throw new Error("Authentication token unavailable");
+      for (const [index, file] of files.entries()) {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("type", type);
 
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("type", "IMAGE");
-      formData.append("isFeatured", media.length === 0 ? "true" : "false");
+        const hasFeaturedImage = media.some(
+          (item) => !item.type || item.type === "IMAGE",
+        );
 
-      const response = await fetch(
-        `${API_URL}/api/v1/properties/${propertyId}/media`,
-        {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-          body: formData,
-        },
-      );
+        const shouldFeature =
+          type === "IMAGE" &&
+          !hasFeaturedImage &&
+          index === 0;
 
-      const data = await response.json();
+        formData.append("isFeatured", String(shouldFeature));
 
-      if (!response.ok) {
-        throw new Error(data?.error || data?.message || "Upload failed");
+        await apiFetch<UploadResponse>(
+          `/api/v1/properties/${propertyId}/media`,
+          getToken,
+          {
+            method: "POST",
+            body: formData,
+          },
+        );
+
+        uploadedCount += 1;
       }
-
-      onChange();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to upload image");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to upload property media",
+      );
     } finally {
+      if (uploadedCount > 0) onChange();
       setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      if (imageInputRef.current) imageInputRef.current.value = "";
+      if (videoInputRef.current) videoInputRef.current.value = "";
     }
+  }
+
+  function handleImagesSelected(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    void uploadFiles(files, "IMAGE");
+  }
+
+  function handleVideoSelected(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    void uploadFiles(files.slice(0, 1), "VIDEO");
   }
 
   async function handleDelete(mediaId: string) {
     setError("");
 
     try {
-      const token = await getToken();
-      if (!token) throw new Error("Authentication token unavailable");
-
-      const response = await fetch(
-        `${API_URL}/api/v1/properties/${propertyId}/media/${mediaId}`,
-        {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` },
-        },
+      await apiFetch(
+        `/api/v1/properties/${propertyId}/media/${mediaId}`,
+        getToken,
+        { method: "DELETE" },
       );
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data?.error || data?.message || "Delete failed");
-      }
-
       onChange();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to remove image");
+      setError(
+        err instanceof Error ? err.message : "Unable to remove media",
+      );
     }
   }
 
   return (
     <div className="mt-4">
-      <p className="mb-2 text-sm font-medium text-gray-700">Photos</p>
+      <p className="mb-2 text-sm font-medium text-[var(--foreground)]">
+        Property photos and video
+      </p>
 
-      <div className="flex flex-wrap gap-2">
-        {media.map((item) => (
-          <div key={item.id} className="relative">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={resolveMediaUrl(item.thumbnailUrl ?? item.url)}
-              alt=""
-              className="h-20 w-20 rounded-lg border border-gray-200 object-cover"
-            />
-            <button
-              type="button"
-              onClick={() => handleDelete(item.id)}
-              aria-label="Remove image"
-              className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs text-white"
+      <div className="flex flex-wrap gap-3">
+        {media.map((item) => {
+          const isVideo = item.type === "VIDEO";
+
+          return (
+            <div
+              key={item.id}
+              className="relative h-24 w-24 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface-muted)]"
             >
-              ×
-            </button>
-          </div>
-        ))}
+              {isVideo ? (
+                <video
+                  src={resolveMediaUrl(item.url)}
+                  muted
+                  playsInline
+                  preload="metadata"
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={resolveMediaUrl(item.thumbnailUrl ?? item.url)}
+                  alt={item.caption ?? "Property photo"}
+                  className="h-full w-full object-cover"
+                />
+              )}
+
+              {isVideo && (
+                <span className="absolute bottom-1 left-1 rounded bg-black/75 px-1.5 py-0.5 text-[10px] text-white">
+                  VIDEO
+                </span>
+              )}
+
+              {item.isFeatured && (
+                <span className="absolute left-1 top-1 rounded bg-yellow-400 px-1.5 py-0.5 text-[10px] font-semibold text-black">
+                  FEATURED
+                </span>
+              )}
+
+              <button
+                type="button"
+                onClick={() => handleDelete(item.id)}
+                aria-label={`Remove ${isVideo ? "video" : "photo"}`}
+                disabled={uploading}
+                className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-sm text-white disabled:opacity-50"
+              >
+                ×
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => imageInputRef.current?.click()}
+          disabled={uploading}
+          className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--foreground)] disabled:opacity-50"
+        >
+          {uploading ? "Uploading…" : "+ Add photos"}
+        </button>
 
         <button
           type="button"
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => videoInputRef.current?.click()}
           disabled={uploading}
-          className="flex h-20 w-20 items-center justify-center rounded-lg border border-dashed border-gray-300 text-xs text-gray-500 disabled:opacity-50"
+          className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--foreground)] disabled:opacity-50"
         >
-          {uploading ? "..." : "+ Add"}
+          + Add short video
         </button>
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp,image/gif"
-          onChange={handleFileSelected}
-          className="hidden"
-        />
       </div>
 
-      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        multiple
+        onChange={handleImagesSelected}
+        className="hidden"
+      />
+
+      <input
+        ref={videoInputRef}
+        type="file"
+        accept="video/mp4,video/webm,video/quicktime"
+        onChange={handleVideoSelected}
+        className="hidden"
+      />
+
+      <p className="mt-2 text-xs text-[var(--muted-foreground)]">
+        Add multiple photos and one short property video. Maximum upload size: 100 MB per file.
+      </p>
+
+      {error && (
+        <p role="alert" className="mt-2 text-xs text-red-600">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

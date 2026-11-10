@@ -63,6 +63,9 @@ export type PropertyMedia = {
   id: string;
   url: string;
   thumbnailUrl: string | null;
+  type?: string;
+  caption?: string | null;
+  isFeatured?: boolean;
 };
 
 export type PropertyWizardData = {
