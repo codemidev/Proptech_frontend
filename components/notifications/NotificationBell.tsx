@@ -99,7 +99,7 @@ export function NotificationBell() {
     }
 
     void refreshCount();
-    const interval = window.setInterval(() => void refreshCount(), 60_000);
+    const interval = window.setInterval(() => void refreshCount(), 20_000);
 
     return () => {
       active = false;
