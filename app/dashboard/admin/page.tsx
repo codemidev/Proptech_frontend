@@ -314,11 +314,13 @@ export default function AdminDashboard() {
               <SidebarItem
                 icon={<BuildingIcon />}
                 label="Properties"
+                badge={stats.totalProperties}
                 onClick={() => { window.location.href = "/dashboard/admin/properties/verify"; }}
               />
               <SidebarItem
                 icon={<ShieldIcon />}
                 label="Verify Properties"
+                badge={stats.pendingProperties}
                 onClick={() => { window.location.href = "/dashboard/admin/properties/verify"; }}
               />
               <SidebarItem
