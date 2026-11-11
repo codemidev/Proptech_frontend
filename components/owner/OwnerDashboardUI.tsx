@@ -209,18 +209,7 @@ export function OwnerDashboardUI({
             </h1>
           </div>
 
-          <div className="flex items-center gap-3">
-
-            {/* Notifications */}
-            <button
-              type="button"
-              className="hidden h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-slate-100 transition hover:bg-slate-50 sm:flex"
-              aria-label="Notifications"
-            >
-              <Bell size={18} />
-            </button>
-
-            {/* Profile */}
+          <div className="flex items-center gap-3">{/* Profile */}
             <div className="relative">
 
               {/* Profile Avatar */}
