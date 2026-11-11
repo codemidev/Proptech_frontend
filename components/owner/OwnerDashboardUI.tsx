@@ -686,6 +686,7 @@ export function OwnerDashboardUI({
               icon={<Home size={19} />}
               label="Home"
               active
+              count={totalProperties}
             />
 
             <BottomNavItem
@@ -701,6 +702,7 @@ export function OwnerDashboardUI({
             <BottomNavItem
               icon={<Activity size={19} />}
               label="Activity"
+              count={pendingInspectionCount}
             />
 
             <BottomNavItem
@@ -841,10 +843,12 @@ function BottomNavItem({
   icon,
   label,
   active = false,
+  count = 0,
 }: {
   icon: ReactNode;
   label: string;
   active?: boolean;
+  count?: number;
 }) {
   return (
     <button
@@ -855,7 +859,15 @@ function BottomNavItem({
           : "text-slate-400"
       }`}
     >
-      {icon}
+      <span className="relative inline-flex">
+        {icon}
+        {count > 0 && (
+          <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#FACC15] px-1 text-[9px] font-extrabold leading-none text-[#111315] shadow-sm">
+            {count > 99 ? "99+" : count}
+          </span>
+        )}
+        {active && <span aria-hidden="true" className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-[#FACC15] ring-2 ring-white animate-pulse" />}
+      </span>
 
       <span>{label}</span>
     </button>
