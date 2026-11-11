@@ -418,6 +418,9 @@ export default function TenantDashboard() {
       <div className="tenant-quick-actions mt-3 grid grid-cols-2 gap-3">
         {quickActions.map((action) => {
           const Icon = action.icon;
+          const actionCount = action.href.endsWith("/inspections")
+            ? inspectionActionCount
+            : (tabActionCounts[action.href.split("/").pop() ?? ""] ?? 0);
 
           const content = (
             <>
@@ -429,10 +432,10 @@ export default function TenantDashboard() {
                 />
                 (action.href.endsWith("/inspections") ? inspectionActionCount : (tabActionCounts[action.href.split("/").pop() ?? ""] ?? 0)) > 0 && (
                   <span
-                    aria-label={`${countExpr} pending actions`}
+                    aria-label={`${actionCount} pending actions`}
                     className="absolute -right-3 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-[#FACC15] px-1 text-[10px] font-extrabold leading-none text-[#111315] shadow-sm"
                   >
-                    {(action.href.endsWith("/inspections") ? inspectionActionCount : (tabActionCounts[action.href.split("/").pop() ?? ""] ?? 0)) > 99 ? "99+" : (action.href.endsWith("/inspections") ? inspectionActionCount : (tabActionCounts[action.href.split("/").pop() ?? ""] ?? 0))}
+                    {actionCount > 99 ? "99+" : actionCount}
                   </span>
                 )}
               </span>
