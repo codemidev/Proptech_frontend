@@ -1874,14 +1874,14 @@ if (!isSignedIn) {
           </div>
 
           <nav className="dashboard-section-navigation flex gap-1 overflow-x-auto border-t border-white/10 px-3 py-2">
-            {[
+            {([
               ["Overview", "#overview", 0],
               ["Property Network", "#property-network", agentProperties.length],
               ["LandVaultX", "#landvault", landVaults.length],
               ["Inspections", "#inspections", upcomingInspections.length],
               ["Move-in / Handover", "/dashboard/agent/move-in", 0],
               ["Account", "#account", 0],
-            ].map(([label, href, count]) => (
+            ] as const).map(([label, href, count]) => (
               <a
                 key={href}
                 href={href}
