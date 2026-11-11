@@ -1875,19 +1875,25 @@ if (!isSignedIn) {
 
           <nav className="dashboard-section-navigation flex gap-1 overflow-x-auto border-t border-white/10 px-3 py-2">
             {[
-              ["Overview", "#overview"],
-              ["Property Network", "#property-network"],
-              ["LandVaultX", "#landvault"],
-              ["Inspections", "#inspections"],
-              ["Move-in / Handover", "/dashboard/agent/move-in"],
-              ["Account", "#account"],
-            ].map(([label, href]) => (
+              ["Overview", "#overview", 0],
+              ["Property Network", "#property-network", agentProperties.length],
+              ["LandVaultX", "#landvault", landVaults.length],
+              ["Inspections", "#inspections", upcomingInspections.length],
+              ["Move-in / Handover", "/dashboard/agent/move-in", 0],
+              ["Account", "#account", 0],
+            ].map(([label, href, count]) => (
               <a
                 key={href}
                 href={href}
-                className="whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold text-slate-300 transition hover:bg-white/10 hover:text-white"
+                className="inline-flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold text-slate-300 transition hover:bg-white/10 hover:text-white"
               >
                 {label}
+                {count > 0 && (
+                  <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[#FACC15] px-1 text-[9px] font-extrabold leading-none text-[#111315]">
+                    {count > 99 ? "99+" : count}
+                  </span>
+                )}
+                {count > 0 && <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-[#FACC15] animate-pulse" />}
               </a>
             ))}
           </nav>
