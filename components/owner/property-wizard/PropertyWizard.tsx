@@ -1972,63 +1972,88 @@ export function PropertyWizard({
        * Persist address, coordinates and the building for this property.
        */
       if (step === 6) {
-        let stepData = latestData;
+        if (!latestData.districtName.trim()) {
+          throw new Error("A district is required.");
+        }
+        if (!latestData.estateName.trim()) {
+          throw new Error("An estate is required.");
+        }
 
-        if (
-          stepData.buildingName.trim() &&
-          !stepData.estateId
-        ) {
+        // Resolve district and estate names before creating dependent records.
+        const addressResponse = await apiFetch<
+          ApiResponse<{
+            districtId: string;
+            estateId: string;
+            districtName?: string;
+            estateName?: string;
+          }>
+        >(
+          `/api/v1/properties/${propertyId}/address`,
+          effectiveGetToken,
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              countryId: latestData.countryId,
+              stateId: latestData.stateId,
+              ...(latestData.localGovernmentId
+                ? { localGovernmentId: latestData.localGovernmentId }
+                : {}),
+              cityId: latestData.cityId,
+              districtName: latestData.districtName.trim(),
+              estateName: latestData.estateName.trim(),
+              ...(latestData.districtId ? { districtId: latestData.districtId } : {}),
+              ...(latestData.estateId ? { estateId: latestData.estateId } : {}),
+              addressLine1: latestData.addressLine1,
+              ...(latestData.addressLine2 ? { addressLine2: latestData.addressLine2 } : {}),
+              ...(latestData.landmark ? { landmark: latestData.landmark } : {}),
+              ...(latestData.postalCode ? { postalCode: latestData.postalCode } : {}),
+            }),
+          },
+        );
+
+        const resolvedDistrictId = addressResponse.data?.districtId;
+        const resolvedEstateId = addressResponse.data?.estateId;
+
+        if (!resolvedDistrictId || !resolvedEstateId) {
           throw new Error(
-            "Select an estate before creating the building.",
+            "The address was saved, but the backend did not return the resolved district and estate IDs.",
           );
         }
 
-        /*
-         * Create the building once for this property.
-         *
-         * The building belongs to the selected estate and its ID is then
-         * attached to the property. We intentionally do not create another
-         * building if the wizard already has a buildingId.
-         */
-        if (
-          !stepData.buildingId &&
-          stepData.buildingName.trim()
-        ) {
-          if (!stepData.estateId) {
-            throw new Error(
-              "Select an estate before creating the building.",
-            );
-          }
+        let stepData: PropertyWizardData = {
+          ...latestData,
+          districtId: resolvedDistrictId,
+          estateId: resolvedEstateId,
+        };
 
-          const buildingResponse =
-            await apiFetch<
-              ApiResponse<{
-                id: string;
-                name: string;
-                floors?: number | null;
-              }>
-            >(
-              "/api/v1/buildings",
-              effectiveGetToken,
-              {
-                method: "POST",
-                body: JSON.stringify({
-                  estateId: stepData.estateId,
-                  name: stepData.buildingName.trim(),
-                  floors:
-                    stepData.buildingFloors.trim()
-                      ? Number(stepData.buildingFloors)
-                      : null,
-                }),
-              },
-            );
+        setData((current) => ({
+          ...current,
+          districtId: resolvedDistrictId,
+          estateId: resolvedEstateId,
+        }));
+
+        // Create the building only after the estate has been resolved.
+        if (stepData.buildingName.trim() && !stepData.buildingId) {
+          const buildingResponse = await apiFetch<
+            ApiResponse<{ id: string; name: string; floors?: number | null }>
+          >(
+            "/api/v1/buildings",
+            effectiveGetToken,
+            {
+              method: "POST",
+              body: JSON.stringify({
+                estateId: resolvedEstateId,
+                name: stepData.buildingName.trim(),
+                floors: stepData.buildingFloors.trim()
+                  ? Number(stepData.buildingFloors)
+                  : null,
+              }),
+            },
+          );
 
           const building = buildingResponse.data;
-
           if (!building?.id) {
-            throw new Error(
-              "Building was created without an ID.",
-            );
+            throw new Error("Building was created without an ID.");
           }
 
           stepData = {
@@ -2051,88 +2076,17 @@ export function PropertyWizard({
                 : current.buildingFloors,
           }));
 
-          /*
-           * Attach the newly-created building to the property.
-           */
           await apiFetch(
             `/api/v1/properties/${propertyId}`,
             effectiveGetToken,
             {
               method: "PATCH",
-              body: JSON.stringify({
-                buildingId: building.id,
-              }),
+              body: JSON.stringify({ buildingId: building.id }),
             },
           );
         }
 
-        await apiFetch(
-          `/api/v1/properties/${propertyId}/address`,
-          effectiveGetToken,
-          {
-            method: "PUT",
-            body: JSON.stringify({
-              countryId:
-                latestData.countryId,
-
-              stateId:
-                latestData.stateId,
-
-              ...(latestData.localGovernmentId
-                ? {
-                    localGovernmentId:
-                      latestData.localGovernmentId,
-                  }
-                : {}),
-
-              cityId:
-                latestData.cityId,
-
-              ...(latestData.districtId
-                ? {
-                    districtId:
-                      latestData.districtId,
-                  }
-                : {}),
-
-              ...(latestData.estateId
-                ? {
-                    estateId:
-                      latestData.estateId,
-                  }
-                : {}),
-
-              addressLine1:
-                latestData.addressLine1,
-
-              ...(latestData.addressLine2
-                ? {
-                    addressLine2:
-                      latestData.addressLine2,
-                  }
-                : {}),
-
-              ...(latestData.landmark
-                ? {
-                    landmark:
-                      latestData.landmark,
-                  }
-                : {}),
-
-              ...(latestData.postalCode
-                ? {
-                    postalCode:
-                      latestData.postalCode,
-                  }
-                : {}),
-            }),
-          },
-        );
-
-        if (
-          latestData.latitude !== null &&
-          latestData.longitude !== null
-        ) {
+        if (stepData.latitude !== null && stepData.longitude !== null) {
           await apiFetch(
             `/api/v1/properties/${propertyId}/coordinates`,
             effectiveGetToken,
@@ -2141,11 +2095,8 @@ export function PropertyWizard({
               body: JSON.stringify({
                 coordinates: [
                   {
-                    latitude:
-                      latestData.latitude,
-
-                    longitude:
-                      latestData.longitude,
+                    latitude: stepData.latitude,
+                    longitude: stepData.longitude,
                   },
                 ],
               }),
@@ -2188,13 +2139,10 @@ export function PropertyWizard({
                 : {}),
 
               cityId: latestData.cityId,
-
-              ...(latestData.districtId
-                ? { districtId: latestData.districtId }
-                : {}),
-              ...(latestData.estateId
-                ? { estateId: latestData.estateId }
-                : {}),
+              districtName: latestData.districtName.trim(),
+              estateName: latestData.estateName.trim(),
+              ...(latestData.districtId ? { districtId: latestData.districtId } : {}),
+              ...(latestData.estateId ? { estateId: latestData.estateId } : {}),
 
               addressLine1:
                 latestData.addressLine1,
@@ -2348,6 +2296,16 @@ export function PropertyWizard({
           "Please select a city.",
         );
 
+        return false;
+      }
+
+      if (!value.districtName.trim()) {
+        setError("Please enter the district.");
+        return false;
+      }
+
+      if (!value.estateName.trim()) {
+        setError("Please enter the estate.");
         return false;
       }
 
