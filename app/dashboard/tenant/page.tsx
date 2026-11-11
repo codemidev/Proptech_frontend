@@ -69,6 +69,8 @@ type Inspection = {
     id: string;
     title: string;
   };
+  tenantDecision?: "REJECTED" | null;
+  applicationStatus?: string | null;
 };
 
 type InspectionsMeResponse = {
@@ -118,6 +120,7 @@ export default function TenantDashboard() {
   const [propertiesReloadKey, setPropertiesReloadKey] = useState(0);
   const [inspectionStatusByProperty, setInspectionStatusByProperty] =
     useState<Record<string, Inspection["status"]>>({});
+  const [inspectionActionCount, setInspectionActionCount] = useState(0);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -152,6 +155,24 @@ export default function TenantDashboard() {
         const res = await apiFetch<InspectionsMeResponse>(
           "/api/v1/inspections/me",
           getToken,
+        );
+
+        const acceptedApplicationStatuses = [
+          "APPLICATION_SUBMITTED",
+          "OWNER_REVIEW",
+          "OWNER_APPROVED",
+          "ACTIVATION_PENDING",
+          "ACTIVATED",
+          "TENANCY_ACTIVE",
+        ];
+
+        setInspectionActionCount(
+          res.data.filter(
+            (inspection) =>
+              (inspection.status === "PENDING" || inspection.status === "CONFIRMED") &&
+              inspection.tenantDecision !== "REJECTED" &&
+              !acceptedApplicationStatuses.includes(inspection.applicationStatus ?? ""),
+          ).length,
         );
 
         const latestByProperty = new Map<string, Inspection>();
@@ -189,6 +210,7 @@ export default function TenantDashboard() {
         setInspectionStatusByProperty(statuses);
       } catch {
         setInspectionStatusByProperty({});
+        setInspectionActionCount(0);
       }
     };
 
@@ -349,12 +371,20 @@ export default function TenantDashboard() {
 
           const content = (
             <>
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white">
+              <span className="relative flex h-9 w-9 items-center justify-center rounded-full bg-white">
                 <Icon
                   size={16}
                   aria-hidden="true"
                   className="text-[#111827]"
                 />
+                {action.href.endsWith("/inspections") && inspectionActionCount > 0 && (
+                  <span
+                    aria-label={`${inspectionActionCount} inspection actions`}
+                    className="absolute -right-3 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-[#FACC15] px-1 text-[10px] font-extrabold leading-none text-[#111315] shadow-sm"
+                  >
+                    {inspectionActionCount > 99 ? "99+" : inspectionActionCount}
+                  </span>
+                )}
               </span>
 
               <span className="!text-[#111111] text-xs">
