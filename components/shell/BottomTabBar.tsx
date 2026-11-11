@@ -73,7 +73,7 @@ export function BottomTabBar() {
     void loadUnreadCount();
     const interval = window.setInterval(() => {
       void loadUnreadCount();
-    }, 60_000);
+    }, 20_000);
 
     return () => {
       active = false;
