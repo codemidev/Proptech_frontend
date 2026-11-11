@@ -311,8 +311,6 @@ export function PropertyLocationStep({
     : cities;
 
   function selectCity(cityId: string) {
-    setDistricts([]);
-    setEstates([]);
     const city = filteredCities.find((item) => item.id === cityId);
 
     onChange({
@@ -380,8 +378,6 @@ export function PropertyLocationStep({
                 options={lgas}
                 placeholder="Select LGA"
                 onChange={(localGovernmentId) => {
-                  setDistricts([]);
-                  setEstates([]);
                   const lga = lgas.find(
                     (item) => item.id === localGovernmentId,
                   );
