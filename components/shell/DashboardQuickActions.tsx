@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "@/components/theme/ThemeProvider";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { NotificationActivityBar } from "@/components/notifications/NotificationActivityBar";
 
 export function DashboardQuickActions() {
   const { theme, toggleTheme } = useTheme();
@@ -18,6 +19,7 @@ export function DashboardQuickActions() {
   }, []);
 
   return (
+    <>
     <div
       className="dashboard-quick-actions sticky top-0 z-[80] flex h-14 items-center justify-end gap-2 bg-[var(--surface)] px-4"
       style={{
@@ -58,5 +60,7 @@ export function DashboardQuickActions() {
 
       <NotificationBell />
     </div>
+    <NotificationActivityBar />
+    </>
   );
 }
