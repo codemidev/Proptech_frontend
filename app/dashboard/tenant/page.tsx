@@ -71,6 +71,7 @@ type Inspection = {
   };
   tenantDecision?: "REJECTED" | null;
   applicationStatus?: string | null;
+  tenancy?: { contractText?: string | null; tenantConsentedAt?: string | null } | null;
 };
 
 type InspectionsMeResponse = {
@@ -121,6 +122,7 @@ export default function TenantDashboard() {
   const [inspectionStatusByProperty, setInspectionStatusByProperty] =
     useState<Record<string, Inspection["status"]>>({});
   const [inspectionActionCount, setInspectionActionCount] = useState(0);
+  const [tabActionCounts, setTabActionCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -215,6 +217,54 @@ export default function TenantDashboard() {
     };
 
     loadInspectionStatuses();
+  }, [isLoaded, isSignedIn, getToken]);
+
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn) return;
+
+    let active = true;
+    const loadActionCounts = async () => {
+      const next: Record<string, number> = {};
+      const [applicationsResult, paymentsResult, leasesResult] = await Promise.allSettled([
+        apiFetch<InspectionsMeResponse>("/api/v1/inspections/me", getToken),
+        apiFetch<{ success: boolean; data: { status: string }[] }>("/api/v1/payments/me", getToken),
+        apiFetch<{ success: boolean; data: { id: string }[] | null }>("/api/v1/leases/me/confirmed", getToken),
+      ]);
+
+      if (applicationsResult.status === "fulfilled") {
+        next.applications = applicationsResult.value.data.filter((item) =>
+          Boolean(item.tenancy?.contractText) && !item.tenancy?.tenantConsentedAt
+        ).length;
+      }
+
+      if (paymentsResult.status === "fulfilled") {
+        next.payments = paymentsResult.value.data.filter((payment) =>
+          payment.status === "PENDING" || payment.status === "FAILED"
+        ).length;
+      }
+
+      if (leasesResult.status === "fulfilled") {
+        const leases = leasesResult.value.data ?? [];
+        const moveInResults = await Promise.allSettled(
+          leases.map((lease) =>
+            apiFetch<{ success: boolean; data: { handoverStatus: string; keyCollectionMethod: string | null } | null }>(
+              `/api/v1/move-in/me?leaseId=${encodeURIComponent(lease.id)}`,
+              getToken,
+            )
+          )
+        );
+        next["move-in"] = moveInResults.reduce((count, result) => {
+          if (result.status !== "fulfilled") return count;
+          const moveIn = result.value.data;
+          return count + (moveIn && moveIn.handoverStatus !== "COMPLETED" && !moveIn.keyCollectionMethod ? 1 : 0);
+        }, 0);
+      }
+
+      if (active) setTabActionCounts(next);
+    };
+
+    void loadActionCounts();
+    return () => { active = false; };
   }, [isLoaded, isSignedIn, getToken]);
 
   useEffect(() => {
@@ -377,12 +427,12 @@ export default function TenantDashboard() {
                   aria-hidden="true"
                   className="text-[#111827]"
                 />
-                {action.href.endsWith("/inspections") && inspectionActionCount > 0 && (
+                (action.href.endsWith("/inspections") ? inspectionActionCount : (tabActionCounts[action.href.split("/").pop() ?? ""] ?? 0)) > 0 && (
                   <span
-                    aria-label={`${inspectionActionCount} inspection actions`}
+                    aria-label={`${countExpr} pending actions`}
                     className="absolute -right-3 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-[#FACC15] px-1 text-[10px] font-extrabold leading-none text-[#111315] shadow-sm"
                   >
-                    {inspectionActionCount > 99 ? "99+" : inspectionActionCount}
+                    {(action.href.endsWith("/inspections") ? inspectionActionCount : (tabActionCounts[action.href.split("/").pop() ?? ""] ?? 0)) > 99 ? "99+" : (action.href.endsWith("/inspections") ? inspectionActionCount : (tabActionCounts[action.href.split("/").pop() ?? ""] ?? 0))}
                   </span>
                 )}
               </span>
