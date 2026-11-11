@@ -107,7 +107,11 @@ export function BottomTabBar() {
                     size={22}
                     strokeWidth={isActive ? 2.25 : 1.75}
                     aria-hidden="true"
+                    className={isActive ? "drop-shadow-[0_0_5px_rgba(250,204,21,0.55)]" : ""}
                   />
+                  {isActive && (
+                    <span aria-hidden="true" className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-[#FACC15] ring-2 ring-white animate-pulse" />
+                  )}
                   {tab.href.endsWith("/activity") && unreadCount > 0 && (
                     <span
                       aria-label={`${unreadCount} unread notifications`}
