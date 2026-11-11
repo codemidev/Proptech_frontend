@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
-import { Bell, CheckCheck, LoaderCircle } from "lucide-react";
+import { Bell, CheckCheck, LoaderCircle, Volume2, VolumeX, Upload, Play } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { hasCustomSound, playNotificationSound, saveCustomSound, setSoundEnabled, soundIsEnabled } from "@/lib/notification-sound";
 
 type NotificationItem = {
   id: string;
@@ -62,6 +63,15 @@ export function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [soundEnabled, setSoundEnabledState] = useState(true);
+  const [customSound, setCustomSound] = useState(false);
+  const [soundMessage, setSoundMessage] = useState("");
+  const previousUnread = useRef<number | null>(null);
+
+  useEffect(() => {
+    setSoundEnabledState(soundIsEnabled());
+    void hasCustomSound().then(setCustomSound);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -76,7 +86,12 @@ export function NotificationBell() {
         }>("/api/v1/me/notifications/unread-count", getToken);
 
         if (active && result.success) {
-          setUnreadCount(Math.max(0, Number(result.data?.unreadCount) || 0));
+          const nextCount = Math.max(0, Number(result.data?.unreadCount) || 0);
+          if (previousUnread.current !== null && nextCount > previousUnread.current) {
+            void playNotificationSound();
+          }
+          previousUnread.current = nextCount;
+          setUnreadCount(nextCount);
         }
       } catch {
         // A notification badge must not interrupt dashboard navigation.
@@ -171,6 +186,36 @@ export function NotificationBell() {
           aria-label="Notifications"
           className="absolute right-0 top-12 z-[100] w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] shadow-2xl"
         >
+          <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-2">
+            <div className="flex items-center gap-2 text-xs font-semibold">
+              {soundEnabled ? <Volume2 size={15} /> : <VolumeX size={15} />}
+              Notification sound
+              {customSound && <span className="rounded-full bg-[#FACC15]/20 px-2 py-0.5 text-[10px]">Custom</span>}
+            </div>
+            <div className="flex items-center gap-2">
+              <button type="button" aria-label="Test notification sound" title="Test sound" onClick={() => void playNotificationSound()} className="rounded-lg p-2 hover:bg-[var(--surface-muted)]"><Play size={14} /></button>
+              <button type="button" onClick={() => { const next = !soundEnabled; setSoundEnabledState(next); setSoundEnabled(next); }} className="rounded-lg border border-[var(--border)] px-2.5 py-1 text-[11px] font-semibold">{soundEnabled ? "On" : "Off"}</button>
+              <label className="cursor-pointer rounded-lg p-2 hover:bg-[var(--surface-muted)]" title="Upload custom audio">
+                <Upload size={14} />
+                <input type="file" accept="audio/*" className="sr-only" onChange={async (event) => {
+                  const file = event.target.files?.[0];
+                  if (!file) return;
+                  try {
+                    await saveCustomSound(file);
+                    setCustomSound(true);
+                    setSoundMessage("Custom sound saved.");
+                    setSoundEnabledState(true);
+                    setSoundEnabled(true);
+                    void playNotificationSound();
+                  } catch (cause) {
+                    setSoundMessage(cause instanceof Error ? cause.message : "Unable to save audio.");
+                  }
+                  event.target.value = "";
+                }} />
+              </label>
+            </div>
+          </div>
+          {soundMessage && <p role="status" className="px-4 py-1 text-[10px] text-[var(--muted-foreground)]">{soundMessage}</p>}
           <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
             <div>
               <h2 className="text-sm font-bold">Notifications</h2>
