@@ -15,8 +15,6 @@ import { apiFetch } from "@/lib/api";
 import type {
   City,
   Country,
-  District,
-  Estate,
   LocalGovernment,
   PropertyWizardData,
   State,
@@ -90,13 +88,6 @@ export function PropertyLocationStep({
   const [states, setStates] = useState<State[]>([]);
   const [lgas, setLgas] = useState<LocalGovernment[]>([]);
   const [cities, setCities] = useState<City[]>([]);
-  const [districts, setDistricts] = useState<District[]>([]);
-  const [estates, setEstates] = useState<Estate[]>([]);
-  const [newEstateName, setNewEstateName] = useState("");
-  const [newEstateDescription, setNewEstateDescription] =
-    useState("");
-  const [creatingEstate, setCreatingEstate] = useState(false);
-  const [estateError, setEstateError] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -208,127 +199,6 @@ export function PropertyLocationStep({
     };
   }, [value.stateId, getToken]);
 
-  useEffect(() => {
-    if (!value.localGovernmentId) return;
-
-    let cancelled = false;
-
-    async function loadDistricts() {
-      try {
-        const response =
-          await apiFetch<ApiResponse<District[]>>(
-            `/api/v1/locations/districts?localGovernmentId=${encodeURIComponent(value.localGovernmentId)}`,
-            getToken,
-          );
-
-        if (!cancelled) {
-          setDistricts(response.data);
-        }
-      } catch {
-        if (!cancelled) {
-          setDistricts([]);
-        }
-      }
-    }
-
-    void loadDistricts();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [value.localGovernmentId, getToken]);
-
-  useEffect(() => {
-    if (!value.districtId) return;
-
-    let cancelled = false;
-
-    async function loadEstates() {
-      try {
-        const response =
-          await apiFetch<ApiResponse<Estate[]>>(
-            `/api/v1/locations/estates?districtId=${encodeURIComponent(value.districtId)}`,
-            getToken,
-          );
-
-        if (!cancelled) {
-          setEstates(response.data);
-        }
-      } catch {
-        if (!cancelled) {
-          setEstates([]);
-        }
-      }
-    }
-
-    void loadEstates();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [value.districtId, getToken]);
-
-  async function createEstate() {
-    const name = newEstateName.trim();
-
-    if (!value.districtId) {
-      setEstateError(
-        "Select a district before creating an estate.",
-      );
-      return;
-    }
-
-    if (!name) {
-      setEstateError("Enter the estate name.");
-      return;
-    }
-
-    try {
-      setCreatingEstate(true);
-      setEstateError("");
-
-      const response =
-        await apiFetch<ApiResponse<Estate>>(
-          "/api/v1/locations/estates",
-          getToken,
-          {
-            method: "POST",
-            body: JSON.stringify({
-              districtId: value.districtId,
-              name,
-              description:
-                newEstateDescription.trim() || null,
-            }),
-          },
-        );
-
-      const estate = response.data;
-
-      setEstates((current) => [
-        ...current,
-        estate,
-      ].sort((a, b) =>
-        a.name.localeCompare(b.name),
-      ));
-
-      onChange({
-        estateId: estate.id,
-        estateName: estate.name,
-      });
-
-      setNewEstateName("");
-      setNewEstateDescription("");
-    } catch (error) {
-      setEstateError(
-        error instanceof Error
-          ? error.message
-          : "Unable to create estate.",
-      );
-    } finally {
-      setCreatingEstate(false);
-    }
-  }
-
   // When editing an existing property, the API gives us location IDs.
   // Resolve those IDs to the human-readable names once the option lists load.
   useEffect(() => {
@@ -373,29 +243,6 @@ export function PropertyLocationStep({
       }
     }
 
-    if (value.districtId) {
-      const district = districts.find(
-        (item) => item.id === value.districtId,
-      );
-      if (
-        district &&
-        value.districtName !== district.name
-      ) {
-        patch.districtName = district.name;
-      }
-    }
-
-    if (value.estateId) {
-      const estate = estates.find(
-        (item) => item.id === value.estateId,
-      );
-      if (
-        estate &&
-        value.estateName !== estate.name
-      ) {
-        patch.estateName = estate.name;
-      }
-    }
 
     if (Object.keys(patch).length > 0) {
       onChange(patch);
@@ -405,8 +252,6 @@ export function PropertyLocationStep({
     states,
     lgas,
     cities,
-    districts,
-    estates,
     value.countryId,
     value.countryName,
     value.stateId,
@@ -415,10 +260,6 @@ export function PropertyLocationStep({
     value.localGovernmentName,
     value.cityId,
     value.cityName,
-    value.districtId,
-    value.districtName,
-    value.estateId,
-    value.estateName,
     onChange,
   ]);
 
@@ -426,8 +267,6 @@ export function PropertyLocationStep({
     setStates([]);
     setLgas([]);
     setCities([]);
-    setDistricts([]);
-    setEstates([]);
     const country = countries.find((item) => item.id === countryId);
 
     onChange({
@@ -449,8 +288,6 @@ export function PropertyLocationStep({
   function selectState(stateId: string) {
     setLgas([]);
     setCities([]);
-    setDistricts([]);
-    setEstates([]);
     const state = states.find((item) => item.id === stateId);
 
     onChange({
@@ -495,17 +332,6 @@ export function PropertyLocationStep({
     });
   }
 
-  function selectDistrict(districtId: string) {
-    setEstates([]);
-    const district = districts.find((item) => item.id === districtId);
-
-    onChange({
-      districtId,
-      districtName: district?.name ?? "",
-      estateId: "",
-      estateName: "",
-    });
-  }
 
   return (
     <div>
@@ -598,88 +424,43 @@ export function PropertyLocationStep({
                 onChange={selectCity}
               />
 
-              <SelectField
-                label="District"
-                value={value.districtId}
-                disabled={!value.localGovernmentId}
-                options={districts}
-                placeholder="Select district"
-                onChange={selectDistrict}
-              />
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-slate-700">
+                  District <span className="text-red-500">*</span>
+                </span>
+                <input
+                  type="text"
+                  required
+                  maxLength={200}
+                  value={value.districtName}
+                  onChange={(event) => onChange({
+                    districtName: event.target.value,
+                    districtId: "",
+                    estateId: "",
+                  })}
+                  placeholder="Enter district"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-100"
+                />
+              </label>
 
-              <SelectField
-                label="Estate"
-                value={value.estateId}
-                disabled={!value.districtId}
-                options={estates}
-                placeholder="Select estate"
-                onChange={(estateId) => {
-                  const estate = estates.find(
-                    (item) => item.id === estateId,
-                  );
-
-                  onChange({
-                    estateId,
-                    estateName: estate?.name ?? "",
-                  });
-                }}
-              />
-
-              <div className="sm:col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <div className="mb-4">
-                  <h3 className="text-sm font-semibold text-slate-900">
-                    Can&apos;t find your estate?
-                  </h3>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Create the estate and it will be selected automatically.
-                  </p>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <input
-                    value={newEstateName}
-                    disabled={!value.districtId || creatingEstate}
-                    onChange={(event) =>
-                      setNewEstateName(event.target.value)
-                    }
-                    placeholder="Estate name"
-                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-100 disabled:cursor-not-allowed disabled:bg-slate-100"
-                  />
-
-                  <input
-                    value={newEstateDescription}
-                    disabled={!value.districtId || creatingEstate}
-                    onChange={(event) =>
-                      setNewEstateDescription(
-                        event.target.value,
-                      )
-                    }
-                    placeholder="Description (optional)"
-                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-100 disabled:cursor-not-allowed disabled:bg-slate-100"
-                  />
-                </div>
-
-                {estateError && (
-                  <p className="mt-2 text-xs text-red-600">
-                    {estateError}
-                  </p>
-                )}
-
-                <button
-                  type="button"
-                  disabled={
-                    !value.districtId ||
-                    !newEstateName.trim() ||
-                    creatingEstate
-                  }
-                  onClick={() => void createEstate()}
-                  className="mt-3 rounded-xl bg-yellow-400 px-4 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {creatingEstate
-                    ? "Creating estate..."
-                    : "Create estate"}
-                </button>
-              </div>
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-slate-700">
+                  Estate <span className="text-red-500">*</span>
+                </span>
+                <input
+                  type="text"
+                  required
+                  maxLength={200}
+                  value={value.estateName}
+                  onChange={(event) => onChange({
+                    estateName: event.target.value,
+                    estateId: "",
+                    buildingId: "",
+                  })}
+                  placeholder="Enter estate"
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-100"
+                />
+              </label>
 
               <div className="sm:col-span-2">
                 <div className="mb-4 mt-2 border-t border-slate-100 pt-5">
@@ -728,7 +509,7 @@ export function PropertyLocationStep({
                   </label>
                 </div>
 
-                {!value.estateId && value.buildingName.trim() && (
+                {!value.estateName.trim() && value.buildingName.trim() && (
                   <p className="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-700">
                     Select an estate before creating this building.
                   </p>
