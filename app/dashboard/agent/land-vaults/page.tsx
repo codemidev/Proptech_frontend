@@ -80,6 +80,13 @@ type PropertyDocument = {
   createdAt?: string;
 };
 
+type LocationValue = string | { name?: string | null } | null;
+
+function getLocationLabel(value: LocationValue | undefined): string {
+  if (typeof value === "string") return value;
+  return value?.name ?? "";
+}
+
 type Vault = {
   id: string;
   vaultCode: string;
@@ -92,8 +99,8 @@ type Vault = {
     propertyCode?: string | null;
     address?: {
       addressLine1?: string | null;
-      city?: string | null;
-      state?: string | null;
+      city?: LocationValue;
+      state?: LocationValue;
     } | null;
     coordinates?: Point[];
     parcel?: {
@@ -561,8 +568,8 @@ export default function AgentLandVaultWorkspace() {
   const ownerCoordinates = selectedVault?.property.coordinates ?? [];
   const address = [
     selectedVault?.property.address?.addressLine1,
-    selectedVault?.property.address?.city,
-    selectedVault?.property.address?.state,
+    getLocationLabel(selectedVault?.property.address?.city),
+    getLocationLabel(selectedVault?.property.address?.state),
   ].filter(Boolean).join(", ");
 
   const verifiedDocuments = selectedVault?.property.documents ?? [];
@@ -659,7 +666,7 @@ export default function AgentLandVaultWorkspace() {
                     {vault.vaultCode}
                   </p>
                   <p className="mt-2 flex items-center gap-1 truncate text-xs text-slate-600 dark:text-slate-300">
-                    <MapPin size={13} /> {vault.property.address?.city || vault.property.address?.state || "Location not recorded"}
+                    <MapPin size={13} /> {getLocationLabel(vault.property.address?.city) || getLocationLabel(vault.property.address?.state) || "Location not recorded"}
                   </p>
                 </button>
               ))}
