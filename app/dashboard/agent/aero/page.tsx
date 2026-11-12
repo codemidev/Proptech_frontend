@@ -323,9 +323,18 @@ export default function AgentAeroPage() {
               Enroll drone owners, register fleet assets and manage paid property inspection missions assigned to you.
             </p>
           </div>
-          <button onClick={() => void load()} disabled={loading} className="rounded-xl bg-[#FACC15] px-4 py-3 text-sm font-bold text-slate-950 disabled:opacity-50">
-            {loading ? "Refreshing…" : "Refresh workspace"}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/dashboard/agent/aero/simulator"
+              className="inline-flex items-center gap-2 rounded-xl border border-yellow-400 bg-slate-900 px-4 py-3 text-sm font-bold text-yellow-300 transition hover:bg-slate-800"
+            >
+              <span aria-hidden="true">✦</span>
+              Flight Simulator
+            </Link>
+            <button onClick={() => void load()} disabled={loading} className="rounded-xl bg-[#FACC15] px-4 py-3 text-sm font-bold text-slate-950 disabled:opacity-50">
+              {loading ? "Refreshing…" : "Refresh workspace"}
+            </button>
+          </div>
         </header>
 
         {error && <p role="alert" className="mt-5 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}

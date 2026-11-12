@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useSignUp } from "@clerk/nextjs/legacy";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -23,7 +23,34 @@ export default function SignUpPage() {
 
   const [step, setStep] = useState<Step>("role");
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
-  const [organizationId, setOrganizationId] = useState("");
+  const [redirectTarget, setRedirectTarget] = useState("/auth/provision");
+  const [isInvitationSignup, setIsInvitationSignup] = useState(false);
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const referral = searchParams.get("ref");
+
+    if (referral && /^[A-Z0-9]{6,20}$/i.test(referral)) {
+      sessionStorage.setItem("signup_referral_code", referral.toUpperCase());
+    } else {
+      sessionStorage.removeItem("signup_referral_code");
+    }
+
+    const raw = searchParams.get("redirect_url");
+    if (!raw || !raw.startsWith("/") || raw.startsWith("//") || raw.includes("\\\\")) return;
+    try {
+      const target = new URL(raw, window.location.origin);
+      if (target.origin !== window.location.origin || target.pathname !== "/owner/invitations/accept" || !target.searchParams.get("token")) return;
+      const safeTarget = `${target.pathname}${target.search}${target.hash}`;
+      setRedirectTarget(safeTarget);
+      setIsInvitationSignup(true);
+      sessionStorage.removeItem("signup_referral_code");
+      setStep("details");
+      sessionStorage.removeItem("signup_role");
+    } catch {
+      return;
+    }
+  }, []);
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -47,18 +74,11 @@ export default function SignUpPage() {
   const handleOAuth = async (strategy: "oauth_google" | "oauth_apple") => {
     if (!isLoaded) return;
 
-    const trimmedOrgId = organizationId.trim();
-    if (trimmedOrgId) {
-      sessionStorage.setItem("signup_organization_id", trimmedOrgId);
-    } else {
-      sessionStorage.removeItem("signup_organization_id");
-    }
-
     try {
       await signUp.authenticateWithRedirect({
         strategy,
         redirectUrl: "/sign-up/sso-callback",
-        redirectUrlComplete: "/auth/provision",
+        redirectUrlComplete: redirectTarget,
       });
     } catch (err) {
       setError(
@@ -81,13 +101,6 @@ export default function SignUpPage() {
     if (!agreedToTerms) {
       setError("Please agree to the Terms and Conditions to continue");
       return;
-    }
-
-    const trimmedOrgId = organizationId.trim();
-    if (trimmedOrgId) {
-      sessionStorage.setItem("signup_organization_id", trimmedOrgId);
-    } else {
-      sessionStorage.removeItem("signup_organization_id");
     }
 
     setSubmitting(true);
@@ -121,7 +134,7 @@ export default function SignUpPage() {
 
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
-        router.push("/auth/provision");
+        router.push(redirectTarget);
       } else {
         setError("Verification incomplete. Please try again.");
       }
@@ -174,13 +187,15 @@ export default function SignUpPage() {
 
       {step === "details" && (
         <div className="mx-auto w-full max-w-sm">
-          <button
-            type="button"
-            onClick={() => setStep("role")}
-            className="mb-4 text-sm text-neutral-600"
-          >
-            ← Back
-          </button>
+          {!isInvitationSignup && (
+            <button
+              type="button"
+              onClick={() => setStep("role")}
+              className="mb-4 text-sm text-neutral-600"
+            >
+              ← Back
+            </button>
+          )}
 
           <h1 className="text-xl font-bold">Create Your Account</h1>
           <p className="mt-1 text-sm text-neutral-600">
@@ -252,19 +267,6 @@ export default function SignUpPage() {
               </button>
             </div>
 
-            <div>
-              <label htmlFor="organizationId" className="mb-1 block text-xs font-medium text-black/60">
-                Organization ID (optional)
-              </label>
-              <input
-                id="organizationId"
-                value={organizationId}
-                onChange={(e) => setOrganizationId(e.target.value)}
-                placeholder="Leave blank to join Aviritech"
-                className={inputClass}
-              />
-            </div>
-
             <label className="flex items-start gap-2 text-xs text-black/60">
               <input
                 type="checkbox"
@@ -327,7 +329,7 @@ export default function SignUpPage() {
 
       <p className="mx-auto mt-8 w-full max-w-sm text-center text-sm text-black/60">
         Already have an account?{" "}
-        <Link href="/sign-in" className="font-semibold text-black underline underline-offset-4">
+        <Link href={isInvitationSignup ? `/sign-in?redirect_url=${encodeURIComponent(redirectTarget)}` : "/sign-in"} className="font-semibold text-black underline underline-offset-4">
           Sign in
         </Link>
       </p>

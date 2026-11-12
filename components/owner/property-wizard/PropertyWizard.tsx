@@ -68,13 +68,6 @@ type WizardBuilding = {
   };
 };
 
-type WizardEstate = {
-  id: string;
-  districtId: string;
-  name: string;
-  description?: string | null;
-};
-
 type WizardBIMVersion = {
   id: string;
   version: number;
@@ -192,12 +185,6 @@ function BuildingBIMStep({
   onChange: (patch: Partial<PropertyWizardData>) => void;
 }) {
   const [buildings, setBuildings] = useState<WizardBuilding[]>([]);
-  const [estates, setEstates] = useState<WizardEstate[]>([]);
-  const [loadingEstates, setLoadingEstates] = useState(false);
-  const [creatingEstate, setCreatingEstate] = useState(false);
-  const [showCreateEstate, setShowCreateEstate] = useState(false);
-  const [newEstateName, setNewEstateName] = useState("");
-  const [newEstateDescription, setNewEstateDescription] = useState("");
 
   const [models, setModels] = useState<WizardBIMModelWithKey[]>([]);
   const [loadingBuildings, setLoadingBuildings] = useState(true);
@@ -239,44 +226,6 @@ function BuildingBIMStep({
       : buildings.find(
           (building) => building.id === value.buildingId,
         );
-
-  const loadEstates = useCallback(async () => {
-    try {
-      setLoadingEstates(true);
-      setError("");
-
-      /*
-       * Estates belong to the organization, not to the currently
-       * selected district.
-       *
-       * District is still stored on each Estate as its canonical
-       * physical location, but it must never control Estate discovery.
-       */
-      const response = await apiFetch<ApiResponse<WizardEstate[]>>(
-        "/api/v1/locations/estates",
-        getToken,
-      );
-
-      const items = Array.isArray(response.data)
-        ? response.data
-        : [];
-
-      setEstates(items);
-    } catch (err) {
-      setEstates([]);
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to load estates",
-      );
-    } finally {
-      setLoadingEstates(false);
-    }
-  }, [getToken]);
-
-  useEffect(() => {
-    void loadEstates();
-  }, [loadEstates]);
 
   const loadBuildings = useCallback(async () => {
     try {
@@ -352,27 +301,6 @@ function BuildingBIMStep({
     void loadBim(value.buildingId);
   }, [value.buildingId, loadBim]);
 
-  function handleEstateChange(estateId: string) {
-    const estate = estates.find(
-      (item) => item.id === estateId,
-    );
-
-    const estateChanged =
-      value.estateId !== estateId;
-
-    onChange({
-      estateId,
-      estateName: estate?.name ?? "",
-      ...(estateChanged
-        ? {
-            buildingId: "",
-            buildingName: "",
-            buildingFloors: "",
-          }
-        : {}),
-    });
-  }
-
   function handleBuildingChange(
     buildingId: string,
   ) {
@@ -388,82 +316,6 @@ function BuildingBIMStep({
           ? String(building.floors)
           : "",
     });
-  }
-
-  async function handleCreateEstate() {
-    if (!value.districtId) {
-      setError(
-        "Select a district in Location before creating an estate.",
-      );
-      return;
-    }
-
-    const name = newEstateName.trim();
-
-    if (name.length < 2) {
-      setError(
-        "Estate name must be at least 2 characters.",
-      );
-      return;
-    }
-
-    try {
-      setCreatingEstate(true);
-      setError("");
-
-      const response = await apiFetch<ApiResponse<WizardEstate>>(
-        "/api/v1/locations/estates",
-        getToken,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            districtId: value.districtId,
-            name,
-            ...(newEstateDescription.trim()
-              ? {
-                  description:
-                    newEstateDescription.trim(),
-                }
-              : {}),
-          }),
-        },
-      );
-
-      const estate = response.data;
-
-      if (!estate?.id) {
-        throw new Error(
-          "Estate was created without an ID.",
-        );
-      }
-
-      setEstates((current) =>
-        [...current.filter((item) => item.id !== estate.id), estate]
-          .sort((a, b) =>
-            a.name.localeCompare(b.name),
-          ),
-      );
-
-      onChange({
-        estateId: estate.id,
-        estateName: estate.name,
-        buildingId: "",
-        buildingName: "",
-        buildingFloors: "",
-      });
-
-      setNewEstateName("");
-      setNewEstateDescription("");
-      setShowCreateEstate(false);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to create estate",
-      );
-    } finally {
-      setCreatingEstate(false);
-    }
   }
 
   async function handleBimUpload() {
@@ -618,178 +470,6 @@ function BuildingBIMStep({
           This property is associated with its building. Upload the
           BIM model for that building below.
         </p>
-      </div>
-
-      {/* -------------------------------------------------------
-          ESTATE
-          Estate is mandatory for final property submission.
-          It is persisted immediately when created.
-         ------------------------------------------------------- */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5">
-        <div className="mb-4 flex items-center gap-3">
-          <div className="rounded-xl bg-yellow-100 p-2">
-            <Building2 size={20} />
-          </div>
-
-          <div>
-            <h3 className="font-semibold text-slate-900">
-              Estate
-            </h3>
-            <p className="text-sm text-slate-500">
-              Select the estate this property belongs to.
-            </p>
-          </div>
-
-          {loadingEstates && (
-            <Loader2
-              size={17}
-              className="ml-auto animate-spin"
-            />
-          )}
-        </div>
-
-        <>
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <select
-                value={value.estateId}
-                onChange={(event) =>
-                  handleEstateChange(event.target.value)
-                }
-                disabled={loadingEstates || creatingEstate}
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-100 disabled:opacity-60"
-              >
-                <option value="">
-                  Select estate
-                </option>
-
-                {estates.map((estate) => (
-                  <option
-                    key={estate.id}
-                    value={estate.id}
-                  >
-                    {estate.name}
-                  </option>
-                ))}
-              </select>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setError("");
-                  setShowCreateEstate(
-                    (current) => !current,
-                  );
-                }}
-                disabled={creatingEstate}
-                className="shrink-0 rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 disabled:opacity-60"
-              >
-                + Create New Estate
-              </button>
-            </div>
-
-            {estates.length === 0 &&
-              !loadingEstates &&
-              !showCreateEstate && (
-                <p className="mt-3 text-sm text-slate-500">
-                  No estates have been created for your organization yet.
-                  Create one to continue.
-                </p>
-              )}
-
-            {showCreateEstate && (
-              <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <div className="grid gap-4">
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                      Estate name
-                    </label>
-
-                    <input
-                      type="text"
-                      value={newEstateName}
-                      onChange={(event) =>
-                        setNewEstateName(
-                          event.target.value,
-                        )
-                      }
-                      placeholder="e.g. Aviritech Gardens"
-                      disabled={creatingEstate}
-                      className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-100 disabled:opacity-60"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                      Description
-                    </label>
-
-                    <textarea
-                      value={newEstateDescription}
-                      onChange={(event) =>
-                        setNewEstateDescription(
-                          event.target.value,
-                        )
-                      }
-                      rows={3}
-                      placeholder="Optional estate description"
-                      disabled={creatingEstate}
-                      className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-100 disabled:opacity-60"
-                    />
-                  </div>
-
-                  <div className="flex justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowCreateEstate(false);
-                        setNewEstateName("");
-                        setNewEstateDescription("");
-                      }}
-                      disabled={creatingEstate}
-                      className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-white disabled:opacity-60"
-                    >
-                      Cancel
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        void handleCreateEstate();
-                      }}
-                      disabled={
-                        creatingEstate ||
-                        newEstateName.trim().length < 2
-                      }
-                      className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
-                    >
-                      {creatingEstate ? (
-                        <span className="flex items-center gap-2">
-                          <Loader2
-                            size={16}
-                            className="animate-spin"
-                          />
-                          Creating...
-                        </span>
-                      ) : (
-                        "Create Estate"
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {value.estateId && (
-              <div className="mt-4 rounded-xl bg-slate-50 p-3">
-                <p className="text-xs text-slate-500">
-                  Selected estate
-                </p>
-                <p className="mt-1 text-sm font-semibold text-slate-900">
-                  {value.estateName || "Estate selected"}
-                </p>
-              </div>
-            )}
-          </>
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
@@ -1181,6 +861,8 @@ type PropertyApiResponse = {
     cityId?: string | null;
     districtId?: string | null;
     estateId?: string | null;
+    district?: { name: string } | null;
+    estate?: { name: string } | null;
     addressLine1?: string | null;
     addressLine2?: string | null;
     landmark?: string | null;
@@ -1576,11 +1258,13 @@ function propertyToWizardData(
 
     districtId:
       property.address?.districtId ?? "",
-    districtName: "",
+    districtName:
+      property.address?.district?.name ?? "",
 
     estateId:
       property.address?.estateId ?? "",
-    estateName: "",
+    estateName:
+      property.address?.estate?.name ?? "",
 
     addressLine1:
       property.address?.addressLine1 ??
@@ -1972,88 +1656,121 @@ export function PropertyWizard({
        * Persist address, coordinates and the building for this property.
        */
       if (step === 6) {
-        if (!latestData.districtName.trim()) {
-          throw new Error("A district is required.");
-        }
-        if (!latestData.estateName.trim()) {
-          throw new Error("An estate is required.");
-        }
+        let stepData = latestData;
 
-        // Resolve district and estate names before creating dependent records.
-        const addressResponse = await apiFetch<
-          ApiResponse<{
-            districtId: string;
-            estateId: string;
-            districtName?: string;
-            estateName?: string;
-          }>
-        >(
-          `/api/v1/properties/${propertyId}/address`,
-          effectiveGetToken,
-          {
-            method: "PUT",
-            body: JSON.stringify({
-              countryId: latestData.countryId,
-              stateId: latestData.stateId,
-              ...(latestData.localGovernmentId
-                ? { localGovernmentId: latestData.localGovernmentId }
-                : {}),
-              cityId: latestData.cityId,
-              districtName: latestData.districtName.trim(),
-              estateName: latestData.estateName.trim(),
-              ...(latestData.districtId ? { districtId: latestData.districtId } : {}),
-              ...(latestData.estateId ? { estateId: latestData.estateId } : {}),
-              addressLine1: latestData.addressLine1,
-              ...(latestData.addressLine2 ? { addressLine2: latestData.addressLine2 } : {}),
-              ...(latestData.landmark ? { landmark: latestData.landmark } : {}),
-              ...(latestData.postalCode ? { postalCode: latestData.postalCode } : {}),
-            }),
-          },
-        );
-
-        const resolvedDistrictId = addressResponse.data?.districtId;
-        const resolvedEstateId = addressResponse.data?.estateId;
-
-        if (!resolvedDistrictId || !resolvedEstateId) {
-          throw new Error(
-            "The address was saved, but the backend did not return the resolved district and estate IDs.",
-          );
-        }
-
-        let stepData: PropertyWizardData = {
-          ...latestData,
-          districtId: resolvedDistrictId,
-          estateId: resolvedEstateId,
-        };
-
-        setData((current) => ({
-          ...current,
-          districtId: resolvedDistrictId,
-          estateId: resolvedEstateId,
-        }));
-
-        // Create the building only after the estate has been resolved.
-        if (stepData.buildingName.trim() && !stepData.buildingId) {
-          const buildingResponse = await apiFetch<
-            ApiResponse<{ id: string; name: string; floors?: number | null }>
+        const addressResponse =
+          await apiFetch<
+            ApiResponse<{
+              districtId: string;
+              estateId: string;
+              district?: { name: string } | null;
+              estate?: { name: string } | null;
+            }>
           >(
-            "/api/v1/buildings",
+            `/api/v1/properties/${propertyId}/address`,
             effectiveGetToken,
             {
-              method: "POST",
+              method: "PUT",
               body: JSON.stringify({
-                estateId: resolvedEstateId,
-                name: stepData.buildingName.trim(),
-                floors: stepData.buildingFloors.trim()
-                  ? Number(stepData.buildingFloors)
-                  : null,
+                countryId: stepData.countryId,
+                stateId: stepData.stateId,
+                ...(stepData.localGovernmentId
+                  ? { localGovernmentId: stepData.localGovernmentId }
+                  : {}),
+                cityId: stepData.cityId,
+                districtName: stepData.districtName.trim(),
+                estateName: stepData.estateName.trim(),
+                ...(stepData.districtId
+                  ? { districtId: stepData.districtId }
+                  : {}),
+                ...(stepData.estateId
+                  ? { estateId: stepData.estateId }
+                  : {}),
+                addressLine1: stepData.addressLine1,
+                ...(stepData.addressLine2
+                  ? { addressLine2: stepData.addressLine2 }
+                  : {}),
+                ...(stepData.landmark
+                  ? { landmark: stepData.landmark }
+                  : {}),
+                ...(stepData.postalCode
+                  ? { postalCode: stepData.postalCode }
+                  : {}),
               }),
             },
           );
 
+        if (
+          !addressResponse.data?.districtId ||
+          !addressResponse.data?.estateId
+        ) {
+          throw new Error("The address was saved without District/Estate IDs.");
+        }
+
+        stepData = {
+          ...stepData,
+          districtId: addressResponse.data.districtId,
+          estateId: addressResponse.data.estateId,
+          districtName:
+            addressResponse.data.district?.name ?? stepData.districtName.trim(),
+          estateName:
+            addressResponse.data.estate?.name ?? stepData.estateName.trim(),
+        };
+
+        setData((current) => ({
+          ...current,
+          districtId: stepData.districtId,
+          estateId: stepData.estateId,
+          districtName: stepData.districtName,
+          estateName: stepData.estateName,
+        }));
+
+        /*
+         * Create the building once for this property.
+         *
+         * The building belongs to the selected estate and its ID is then
+         * attached to the property. We intentionally do not create another
+         * building if the wizard already has a buildingId.
+         */
+        if (
+          !stepData.buildingId &&
+          stepData.buildingName.trim()
+        ) {
+          if (!stepData.estateId) {
+            throw new Error(
+              "Select an estate before creating the building.",
+            );
+          }
+
+          const buildingResponse =
+            await apiFetch<
+              ApiResponse<{
+                id: string;
+                name: string;
+                floors?: number | null;
+              }>
+            >(
+              "/api/v1/buildings",
+              effectiveGetToken,
+              {
+                method: "POST",
+                body: JSON.stringify({
+                  estateId: stepData.estateId,
+                  name: stepData.buildingName.trim(),
+                  floors:
+                    stepData.buildingFloors.trim()
+                      ? Number(stepData.buildingFloors)
+                      : null,
+                }),
+              },
+            );
+
           const building = buildingResponse.data;
+
           if (!building?.id) {
-            throw new Error("Building was created without an ID.");
+            throw new Error(
+              "Building was created without an ID.",
+            );
           }
 
           stepData = {
@@ -2076,17 +1793,25 @@ export function PropertyWizard({
                 : current.buildingFloors,
           }));
 
+          /*
+           * Attach the newly-created building to the property.
+           */
           await apiFetch(
             `/api/v1/properties/${propertyId}`,
             effectiveGetToken,
             {
               method: "PATCH",
-              body: JSON.stringify({ buildingId: building.id }),
+              body: JSON.stringify({
+                buildingId: building.id,
+              }),
             },
           );
         }
 
-        if (stepData.latitude !== null && stepData.longitude !== null) {
+        if (
+          latestData.latitude !== null &&
+          latestData.longitude !== null
+        ) {
           await apiFetch(
             `/api/v1/properties/${propertyId}/coordinates`,
             effectiveGetToken,
@@ -2095,8 +1820,11 @@ export function PropertyWizard({
               body: JSON.stringify({
                 coordinates: [
                   {
-                    latitude: stepData.latitude,
-                    longitude: stepData.longitude,
+                    latitude:
+                      latestData.latitude,
+
+                    longitude:
+                      latestData.longitude,
                   },
                 ],
               }),
@@ -2141,8 +1869,12 @@ export function PropertyWizard({
               cityId: latestData.cityId,
               districtName: latestData.districtName.trim(),
               estateName: latestData.estateName.trim(),
-              ...(latestData.districtId ? { districtId: latestData.districtId } : {}),
-              ...(latestData.estateId ? { estateId: latestData.estateId } : {}),
+              ...(latestData.districtId
+                ? { districtId: latestData.districtId }
+                : {}),
+              ...(latestData.estateId
+                ? { estateId: latestData.estateId }
+                : {}),
 
               addressLine1:
                 latestData.addressLine1,
@@ -2323,12 +2055,12 @@ export function PropertyWizard({
 
     if (step === 7) {
       if (!value.districtId) {
-        setError("Please select a district before submitting the property.");
+        setError("The district has not been resolved. Save the Location step again.");
         return false;
       }
 
       if (!value.estateId) {
-        setError("Please select or create an estate before submitting the property.");
+        setError("The estate has not been resolved. Save the Location step again.");
         return false;
       }
     }

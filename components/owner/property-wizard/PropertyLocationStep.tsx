@@ -104,6 +104,7 @@ export function PropertyLocationStep({
           await apiFetch<ApiResponse<Country[]>>(
             "/api/v1/locations/countries",
             getToken,
+            { cache: "no-store" },
           );
 
         if (!cancelled) {
@@ -199,6 +200,9 @@ export function PropertyLocationStep({
     };
   }, [value.stateId, getToken]);
 
+
+
+
   // When editing an existing property, the API gives us location IDs.
   // Resolve those IDs to the human-readable names once the option lists load.
   useEffect(() => {
@@ -242,7 +246,6 @@ export function PropertyLocationStep({
         patch.cityName = city.name;
       }
     }
-
 
     if (Object.keys(patch).length > 0) {
       onChange(patch);
@@ -306,7 +309,9 @@ export function PropertyLocationStep({
 
   const filteredCities = value.localGovernmentId
     ? cities.filter(
-        (city) => city.localGovernmentId === value.localGovernmentId,
+        (city) =>
+          !city.localGovernmentId ||
+          city.localGovernmentId === value.localGovernmentId,
       )
     : cities;
 
@@ -329,7 +334,6 @@ export function PropertyLocationStep({
       estateName: "",
     });
   }
-
 
   return (
     <div>
@@ -378,7 +382,7 @@ export function PropertyLocationStep({
                 options={lgas}
                 placeholder="Select LGA"
                 onChange={(localGovernmentId) => {
-                  const lga = lgas.find(
+                                              const lga = lgas.find(
                     (item) => item.id === localGovernmentId,
                   );
 
@@ -410,50 +414,48 @@ export function PropertyLocationStep({
               <SelectField
                 label="City"
                 value={value.cityId}
-                disabled={!value.stateId}
+                disabled={!value.localGovernmentId}
                 options={filteredCities}
-                placeholder={
-                  value.localGovernmentId
-                    ? "Select city"
-                    : "Select city (or select LGA to filter)"
-                }
+                placeholder="Select city"
                 onChange={selectCity}
               />
 
               <label className="block">
                 <span className="mb-2 block text-sm font-medium text-slate-700">
-                  District <span className="text-red-500">*</span>
+                  District <span className="text-red-600">*</span>
                 </span>
                 <input
-                  type="text"
                   required
                   maxLength={200}
                   value={value.districtName}
-                  onChange={(event) => onChange({
-                    districtName: event.target.value,
-                    districtId: "",
-                    estateId: "",
-                  })}
-                  placeholder="Enter district"
+                  onChange={(event) =>
+                    onChange({
+                      districtName: event.target.value,
+                      districtId: "",
+                      estateName: "",
+                      estateId: "",
+                    })
+                  }
+                  placeholder="Enter district or neighbourhood"
                   className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-100"
                 />
               </label>
 
               <label className="block">
                 <span className="mb-2 block text-sm font-medium text-slate-700">
-                  Estate <span className="text-red-500">*</span>
+                  Estate <span className="text-red-600">*</span>
                 </span>
                 <input
-                  type="text"
                   required
                   maxLength={200}
                   value={value.estateName}
-                  onChange={(event) => onChange({
-                    estateName: event.target.value,
-                    estateId: "",
-                    buildingId: "",
-                  })}
-                  placeholder="Enter estate"
+                  onChange={(event) =>
+                    onChange({
+                      estateName: event.target.value,
+                      estateId: "",
+                    })
+                  }
+                  placeholder="Enter estate name"
                   className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-100"
                 />
               </label>
@@ -505,7 +507,7 @@ export function PropertyLocationStep({
                   </label>
                 </div>
 
-                {!value.estateName.trim() && value.buildingName.trim() && (
+                {!value.estateId && value.buildingName.trim() && (
                   <p className="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-700">
                     Select an estate before creating this building.
                   </p>

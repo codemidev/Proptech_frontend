@@ -46,6 +46,15 @@ export default function PublicPropertyDetailPage() {
   const [property, setProperty] = useState<PropertyDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [referralCode, setReferralCode] = useState<string | null>(null);
+
+  useEffect(() => {
+    const rawReferral = new URLSearchParams(window.location.search).get("ref");
+
+    if (rawReferral && /^[A-Z0-9]{6,20}$/i.test(rawReferral)) {
+      setReferralCode(rawReferral.toUpperCase());
+    }
+  }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -169,10 +178,10 @@ export default function PublicPropertyDetailPage() {
               </Link>
             ) : (
               <div className="mt-6 space-y-2">
-                <Link href="/sign-in">
+                <Link href={referralCode ? `/sign-in?ref=${encodeURIComponent(referralCode)}` : "/sign-in"}>
                   <Button>Sign In to Book an Inspection</Button>
                 </Link>
-                <Link href="/sign-up">
+                <Link href={referralCode ? `/sign-up?ref=${encodeURIComponent(referralCode)}` : "/sign-up"}>
                   <Button variant="secondary">Create an Account</Button>
                 </Link>
               </div>

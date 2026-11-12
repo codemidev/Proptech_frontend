@@ -160,6 +160,43 @@ type AgentPropertiesResponse = {
   data: AgentProperty[];
 };
 
+type AgentPayoutBankDetails = {
+  bankCode: string;
+  bankName: string;
+  accountName: string;
+  accountNumber: string;
+};
+
+type AgentPayoutBankResponse = {
+  success: boolean;
+  data: {
+    bankCode: string | null;
+    bankName: string | null;
+    accountName: string | null;
+    accountNumber: string | null;
+  };
+};
+
+type AgentPayoutEarning = {
+  id: string;
+  amount: string;
+  percentage: string | null;
+  currency: string;
+  createdAt: string;
+  paymentReference: string;
+  source?: string;
+};
+
+type AgentPayoutEarnings = {
+  commissions: AgentPayoutEarning[];
+  referralRewards: AgentPayoutEarning[];
+};
+
+type AgentPayoutEarningsResponse = {
+  success: boolean;
+  data: AgentPayoutEarnings;
+};
+
 type AgentPropertyDetail = AgentProperty & {
   description?: string | null;
   bedrooms?: number | null;
@@ -402,6 +439,23 @@ export default function AgentDashboard() {
   const [landVaults, setLandVaults] = useState<LandVault[]>([]);
   const [agentProfile, setAgentProfile] = useState<AgentProfile | null>(null);
   const [agentProperties, setAgentProperties] = useState<AgentProperty[]>([]);
+  const [referralCode, setReferralCode] = useState<string | null>(null);
+  const [payoutBank, setPayoutBank] = useState<AgentPayoutBankDetails>({
+    bankCode: "",
+    bankName: "",
+    accountName: "",
+    accountNumber: "",
+  });
+  const [payoutEarnings, setPayoutEarnings] = useState<AgentPayoutEarnings>({
+    commissions: [],
+    referralRewards: [],
+  });
+  const [payoutLoading, setPayoutLoading] = useState(false);
+  const [payoutSaving, setPayoutSaving] = useState(false);
+  const [payoutError, setPayoutError] = useState("");
+  const [payoutNotice, setPayoutNotice] = useState("");
+  const [shareLoadingId, setShareLoadingId] = useState<string | null>(null);
+  const [shareMessage, setShareMessage] = useState("");
   const [selectedProperty, setSelectedProperty] =
     useState<AgentPropertyDetail | null>(null);
   const [propertyDetailLoading, setPropertyDetailLoading] = useState(false);
@@ -752,11 +806,162 @@ export default function AgentDashboard() {
   }
 
 
+  async function copyAgentReferralLink() {
+    if (!referralCode) return;
+
+    try {
+      const url = new URL("/sign-up", window.location.origin);
+      url.searchParams.set("ref", referralCode);
+      await navigator.clipboard.writeText(url.toString());
+      setShareMessage("Agent invitation link copied.");
+    } catch {
+      setShareMessage("Unable to copy the invitation link. Check clipboard permissions.");
+    }
+  }
+
+  async function copyPropertyShareLink(propertyId: string) {
+    setShareLoadingId(propertyId);
+    setShareMessage("");
+
+    try {
+      const response = await apiFetch<{
+        success: boolean;
+        data: { path: string };
+      }>(
+        `/api/v1/agents/me/properties/${encodeURIComponent(propertyId)}/share`,
+        getToken,
+      );
+
+      const url = new URL(response.data.path, window.location.origin);
+      await navigator.clipboard.writeText(url.toString());
+      setShareMessage("Property share link copied.");
+    } catch (err) {
+      setShareMessage(
+        err instanceof Error ? err.message : "Unable to create the property share link.",
+      );
+    } finally {
+      setShareLoadingId(null);
+    }
+  }
+
+  async function loadPayoutInfo() {
+    if (!isLoaded || !isSignedIn) return;
+
+    setPayoutLoading(true);
+    setPayoutError("");
+
+    const [bankResult, earningsResult] = await Promise.allSettled([
+      apiFetch<AgentPayoutBankResponse>(
+        "/api/v1/agents/me/payout/bank-details",
+        getToken,
+      ),
+      apiFetch<AgentPayoutEarningsResponse>(
+        "/api/v1/agents/me/payout/earnings",
+        getToken,
+      ),
+    ]);
+
+    const errors: string[] = [];
+
+    if (bankResult.status === "fulfilled") {
+      const bank = bankResult.value.data;
+      setPayoutBank({
+        bankCode: bank?.bankCode ?? "",
+        bankName: bank?.bankName ?? "",
+        accountName: bank?.accountName ?? "",
+        accountNumber: bank?.accountNumber ?? "",
+      });
+    } else {
+      errors.push(
+        bankResult.reason instanceof Error
+          ? bankResult.reason.message
+          : "Unable to load bank details.",
+      );
+    }
+
+    if (earningsResult.status === "fulfilled") {
+      setPayoutEarnings({
+        commissions: earningsResult.value.data?.commissions ?? [],
+        referralRewards: earningsResult.value.data?.referralRewards ?? [],
+      });
+    } else {
+      errors.push(
+        earningsResult.reason instanceof Error
+          ? earningsResult.reason.message
+          : "Unable to load eligible earnings.",
+      );
+    }
+
+    setPayoutError(errors.join(" "));
+    setPayoutLoading(false);
+  }
+
+  async function savePayoutBankDetails(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPayoutError("");
+    setPayoutNotice("");
+
+    const details = {
+      bankCode: payoutBank.bankCode.trim(),
+      bankName: payoutBank.bankName.trim(),
+      accountName: payoutBank.accountName.trim(),
+      accountNumber: payoutBank.accountNumber.trim(),
+    };
+
+    if (
+      !details.bankCode ||
+      !details.bankName ||
+      !details.accountName ||
+      !/^\d{10}$/.test(details.accountNumber)
+    ) {
+      setPayoutError(
+        "Enter the bank code, bank name, account name and a valid 10-digit account number.",
+      );
+      return;
+    }
+
+    setPayoutSaving(true);
+
+    try {
+      const response = await apiFetch<{ success: boolean; message?: string }>(
+        "/api/v1/agents/me/payout/bank-details",
+        getToken,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(details),
+        },
+      );
+
+      if (!response.success) {
+        throw new Error(response.message || "Unable to save bank details.");
+      }
+
+      setPayoutNotice(response.message || "Payout bank details saved.");
+      await loadPayoutInfo();
+    } catch (err) {
+      setPayoutError(
+        err instanceof Error ? err.message : "Unable to save bank details.",
+      );
+    } finally {
+      setPayoutSaving(false);
+    }
+  }
+
   async function loadDashboard() {
     if (!isLoaded || !isSignedIn) return;
 
     setLoading(true);
     setError("");
+
+    const referralRequest = apiFetch<{
+      success: boolean;
+      data: { referralCode: string };
+    }>("/api/v1/agents/me/referral", getToken)
+      .then((response) => response.data?.referralCode ?? null)
+      .catch(() => null);
+
+    void referralRequest.then(setReferralCode);
 
     try {
       const [
@@ -872,6 +1077,11 @@ export default function AgentDashboard() {
 
   useEffect(() => {
     loadDashboard();
+  }, [isLoaded, isSignedIn, getToken]);
+
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn) return;
+    void loadPayoutInfo();
   }, [isLoaded, isSignedIn, getToken]);
 
   useEffect(() => {
@@ -1831,69 +2041,61 @@ if (!isSignedIn) {
         </div>
       )}
 
-      <div className="mx-auto max-w-[1500px] px-4 py-5 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-6xl px-5 pb-8 pt-6 sm:px-6 lg:px-8">
 
         {/* Agent Network header */}
-        <header className="mb-4 overflow-hidden rounded-3xl border border-slate-200 bg-slate-950 text-white shadow-sm">
-          <div className="relative px-5 py-6 sm:px-7 sm:py-8">
-            <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-[#facc15]/10 blur-3xl" />
-            <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full bg-[#facc15] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-950">
-                    Agent Network
+        <header className="mb-5 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-[#FACC15] px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-[#111827]">
+                  Agent Network
+                </span>
+                {agentProfile?.organization?.name && (
+                  <span className="truncate rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-semibold text-slate-600">
+                    {agentProfile.organization.name}
                   </span>
-                  {agentProfile?.organization?.name && (
-                    <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-300">
-                      {agentProfile.organization.name}
-                    </span>
-                  )}
-                </div>
-
-                <h1 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">
-                  Welcome back, {firstName}
-                </h1>
-
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
-                  Your workspace for property opportunities, inspections and
-                  LandVaultX verification.
-                </p>
+                )}
               </div>
 
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={loadDashboard}
-                  className="rounded-xl border border-white/15 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/15"
-                >
-                  Refresh
-                </button>
-                <UserButton />
-              </div>
+              <h1 className="mt-3 truncate text-2xl font-normal tracking-tight text-slate-900">
+                Welcome, {firstName}
+              </h1>
+
+              <p className="mt-1 text-sm text-slate-500">
+                Your workspace for properties, inspections and LandVaultX.
+              </p>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-3">
+              <button
+                type="button"
+                onClick={loadDashboard}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-gray-50"
+              >
+                Refresh
+              </button>
+              <UserButton />
             </div>
           </div>
 
-          <nav className="dashboard-section-navigation flex gap-1 overflow-x-auto border-t border-white/10 px-3 py-2">
-            {([
-              ["Overview", "#overview", 0],
-              ["Property Network", "#property-network", agentProperties.length],
-              ["LandVaultX", "#landvault", landVaults.length],
-              ["Inspections", "#inspections", upcomingInspections.length],
-              ["Move-in / Handover", "/dashboard/agent/move-in", 0],
-              ["Account", "#account", 0],
-            ] as const).map(([label, href, count]) => (
+          <nav className="dashboard-section-navigation flex gap-1 overflow-x-auto border-t border-slate-200 bg-white px-3 py-2">
+            {[
+              ["Overview", "#overview"],
+              ["Property Network", "#property-network"],
+              ["Invite Agents", "#referrals"],
+              ["Payouts", "#payouts"],
+              ["LandVaultX", "#landvault"],
+              ["Inspections", "#inspections"],
+              ["Move-in / Handover", "/dashboard/agent/move-in"],
+              ["Account", "#account"],
+            ].map(([label, href]) => (
               <a
                 key={href}
                 href={href}
-                className="inline-flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold text-slate-300 transition hover:bg-white/10 hover:text-white"
+                className="whitespace-nowrap rounded-xl px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
               >
                 {label}
-                {count > 0 && (
-                  <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[#FACC15] px-1 text-[9px] font-extrabold leading-none text-[#111315]">
-                    {count > 99 ? "99+" : count}
-                  </span>
-                )}
-                {count > 0 && <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-[#FACC15] animate-pulse" />}
               </a>
             ))}
           </nav>
@@ -1936,6 +2138,239 @@ if (!isSignedIn) {
             value={upcomingInspections.length}
             detail={`${stats.completedInspections} completed`}
           />
+        </section>
+
+        <section
+          id="referrals"
+          className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+        >
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#b28b00]">
+                Agent invitations
+              </p>
+              <h2 className="mt-1 text-lg font-bold text-slate-900">
+                Grow your Agent network
+              </h2>
+              <p className="mt-1 max-w-xl text-sm text-slate-500">
+                Share your invitation link with people who want to register as
+                Aviritech Agents.
+              </p>
+              {referralCode && (
+                <p className="mt-2 text-xs text-slate-500">
+                  Your referral code:{" "}
+                  <span className="font-bold tracking-wider text-slate-800">
+                    {referralCode}
+                  </span>
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={copyAgentReferralLink}
+              disabled={!referralCode}
+              className="shrink-0 rounded-xl bg-[#facc15] px-4 py-3 text-sm font-bold text-slate-950 transition hover:bg-[#eab308] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {referralCode ? "Copy Agent invitation link" : "Invitation link unavailable"}
+            </button>
+          </div>
+          {shareMessage && (
+            <p role="status" className="mt-3 text-xs font-medium text-slate-600">
+              {shareMessage}
+            </p>
+          )}
+        </section>
+
+        <section
+          id="payouts"
+          className="mt-5 scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#b28b00]">
+                Agent finance
+              </p>
+              <h2 className="mt-1 text-lg font-bold text-slate-900">
+                Payout details and earnings
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Maintain your receiving bank account and review eligible unpaid earnings.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void loadPayoutInfo()}
+              disabled={payoutLoading}
+              className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            >
+              {payoutLoading ? "Refreshing..." : "Refresh earnings"}
+            </button>
+          </div>
+
+          {payoutError && (
+            <p role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              {payoutError}
+            </p>
+          )}
+          {payoutNotice && (
+            <p role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+              {payoutNotice}
+            </p>
+          )}
+
+          <div className="mt-5 grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
+            <form
+              onSubmit={savePayoutBankDetails}
+              className="rounded-xl border border-slate-200 p-4"
+            >
+              <h3 className="font-bold text-slate-900">Receiving bank account</h3>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                These details belong to your agent account and will be used for manually processed payouts.
+              </p>
+
+              <div className="mt-4 space-y-3">
+                <label className="block text-xs font-semibold text-slate-700">
+                  Bank name
+                  <input
+                    value={payoutBank.bankName}
+                    onChange={(event) => setPayoutBank((current) => ({ ...current, bankName: event.target.value }))}
+                    required
+                    maxLength={100}
+                    autoComplete="off"
+                    className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm font-normal"
+                    placeholder="e.g. Access Bank"
+                  />
+                </label>
+                <label className="block text-xs font-semibold text-slate-700">
+                  Bank code
+                  <input
+                    value={payoutBank.bankCode}
+                    onChange={(event) => setPayoutBank((current) => ({ ...current, bankCode: event.target.value }))}
+                    required
+                    maxLength={30}
+                    autoComplete="off"
+                    className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm font-normal"
+                    placeholder="Bank code"
+                  />
+                </label>
+                <label className="block text-xs font-semibold text-slate-700">
+                  Account name
+                  <input
+                    value={payoutBank.accountName}
+                    onChange={(event) => setPayoutBank((current) => ({ ...current, accountName: event.target.value }))}
+                    required
+                    maxLength={150}
+                    autoComplete="off"
+                    className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm font-normal"
+                    placeholder="Name registered with the bank"
+                  />
+                </label>
+                <label className="block text-xs font-semibold text-slate-700">
+                  10-digit account number
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]{10}"
+                    maxLength={10}
+                    value={payoutBank.accountNumber}
+                    onChange={(event) => setPayoutBank((current) => ({
+                      ...current,
+                      accountNumber: event.target.value.replace(/\D/g, "").slice(0, 10),
+                    }))}
+                    required
+                    autoComplete="off"
+                    className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm font-normal"
+                    placeholder="0123456789"
+                  />
+                </label>
+              </div>
+
+              <button
+                type="submit"
+                disabled={payoutSaving || payoutLoading}
+                className="mt-4 w-full rounded-xl bg-[#FACC15] px-4 py-3 text-sm font-bold text-slate-950 hover:bg-yellow-400 disabled:opacity-50"
+              >
+                {payoutSaving ? "Saving..." : "Save bank details"}
+              </button>
+            </form>
+
+            <div className="space-y-4">
+              <div className="rounded-xl border border-slate-200 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="font-bold text-slate-900">Eligible unpaid commissions</h3>
+                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">
+                    {payoutEarnings.commissions.length}
+                  </span>
+                </div>
+                {payoutLoading ? (
+                  <p className="mt-3 text-sm text-slate-500">Loading eligible commissions...</p>
+                ) : payoutEarnings.commissions.length === 0 ? (
+                  <p className="mt-3 text-sm text-slate-500">No eligible unpaid commissions recorded.</p>
+                ) : (
+                  <div className="mt-3 divide-y divide-slate-100">
+                    {payoutEarnings.commissions.map((earning) => (
+                      <div key={earning.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-800">
+                            {(earning.source || "COMMISSION").replaceAll("_", " ")}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {earning.paymentReference} · {new Date(earning.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <p className="text-sm font-bold text-slate-900">
+                          {new Intl.NumberFormat("en-NG", {
+                            style: "currency",
+                            currency: earning.currency,
+                            maximumFractionDigits: 2,
+                          }).format(Number(earning.amount))}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-xl border border-slate-200 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="font-bold text-slate-900">Referral rewards</h3>
+                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">
+                    {payoutEarnings.referralRewards.length}
+                  </span>
+                </div>
+                {payoutLoading ? (
+                  <p className="mt-3 text-sm text-slate-500">Loading referral rewards...</p>
+                ) : payoutEarnings.referralRewards.length === 0 ? (
+                  <p className="mt-3 text-sm text-slate-500">No eligible unpaid referral rewards recorded.</p>
+                ) : (
+                  <div className="mt-3 divide-y divide-slate-100">
+                    {payoutEarnings.referralRewards.map((earning) => (
+                      <div key={earning.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-800">
+                            Referral reward · {earning.percentage ?? "—"}%
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {earning.paymentReference} · {new Date(earning.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <p className="text-sm font-bold text-slate-900">
+                          {new Intl.NumberFormat("en-NG", {
+                            style: "currency",
+                            currency: earning.currency,
+                            maximumFractionDigits: 2,
+                          }).format(Number(earning.amount))}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <p className="text-xs leading-5 text-slate-500">
+                These are eligible unpaid records, not a confirmed weekly payout. Payment is processed separately by Aviritech after review and independent transfer verification.
+              </p>
+            </div>
+          </div>
         </section>
 
         {/* Network capability strip */}
@@ -2185,7 +2620,17 @@ if (!isSignedIn) {
                           </div>
                         </div>
 
-                        <div className="mt-4 flex justify-end">
+                        <div className="mt-4 flex flex-wrap justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => copyPropertyShareLink(property.id)}
+                            disabled={shareLoadingId === property.id}
+                            className="rounded-lg border border-[#e4bd18] bg-[#fff9dc] px-3 py-2 text-xs font-bold text-slate-800 transition hover:bg-[#fff1a8] disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {shareLoadingId === property.id
+                              ? "Preparing link..."
+                              : "Copy Share Link"}
+                          </button>
                           <button
                             type="button"
                             onClick={() => loadPropertyDetails(property.id)}
@@ -2712,9 +3157,9 @@ function StatCard({
   detail: string;
 }) {
   return (
-    <div className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm">
-      <p className="text-sm font-medium text-slate-500">{label}</p>
-      <p className="mt-2 text-2xl font-extrabold tracking-tight">{value}</p>
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
+      <p className="text-xs font-medium text-slate-500">{label}</p>
+      <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">{value}</p>
       <p className="mt-1 text-xs text-slate-400">{detail}</p>
     </div>
   );

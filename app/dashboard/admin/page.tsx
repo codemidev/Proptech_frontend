@@ -314,13 +314,11 @@ export default function AdminDashboard() {
               <SidebarItem
                 icon={<BuildingIcon />}
                 label="Properties"
-                badge={stats.totalProperties}
                 onClick={() => { window.location.href = "/dashboard/admin/properties/verify"; }}
               />
               <SidebarItem
                 icon={<ShieldIcon />}
                 label="Verify Properties"
-                badge={stats.pendingProperties}
                 onClick={() => { window.location.href = "/dashboard/admin/properties/verify"; }}
               />
               <SidebarItem
@@ -348,6 +346,14 @@ export default function AdminDashboard() {
                 label="Aero Operations"
                 onClick={() => {
                   window.location.href = "/dashboard/admin/aero";
+                }}
+              />
+
+              <SidebarItem
+                icon={<ActivityIcon />}
+                label="Weekly Payouts"
+                onClick={() => {
+                  window.location.href = "/dashboard/admin/payouts";
                 }}
               />
 

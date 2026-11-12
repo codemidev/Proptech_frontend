@@ -20,7 +20,7 @@ export function DashboardQuickActions() {
 
   return (
     <>
-    <div
+      <div
       className="dashboard-quick-actions sticky top-0 z-[80] flex h-14 items-center justify-end gap-2 bg-[var(--surface)] px-4"
       style={{
         borderBottom:
@@ -59,8 +59,8 @@ export function DashboardQuickActions() {
       </button>
 
       <NotificationBell />
-    </div>
-    <NotificationActivityBar />
+      </div>
+      <NotificationActivityBar />
     </>
   );
 }

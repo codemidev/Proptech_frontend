@@ -83,6 +83,11 @@ type OwnerInspectionsResponse = {
   data: OwnerInspection[];
 };
 
+type OwnerApplicationsResponse = {
+  success: boolean;
+  data: Array<{ status: string }>;
+};
+
 export default function OwnerDashboardPage() {
   const { isLoaded, isSignedIn, getToken } = useAuth();
   const { user } = useUser();
@@ -106,6 +111,15 @@ export default function OwnerDashboardPage() {
     useState(true);
 
   const [inspectionRequestsError, setInspectionRequestsError] =
+    useState("");
+
+  const [pendingApplicationsCount, setPendingApplicationsCount] =
+    useState(0);
+
+  const [applicationsLoading, setApplicationsLoading] =
+    useState(true);
+
+  const [applicationsError, setApplicationsError] =
     useState("");
 
   const [loading, setLoading] = useState(true);
@@ -255,6 +269,60 @@ export default function OwnerDashboardPage() {
     };
   }, [isLoaded, isSignedIn, getToken]);
 
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadApplications() {
+      try {
+        setApplicationsLoading(true);
+        setApplicationsError("");
+
+        const response =
+          await apiFetch<OwnerApplicationsResponse>(
+            "/api/v1/inspections/owner/applications",
+            getToken,
+          );
+
+        if (!cancelled) {
+          const applications = Array.isArray(response.data)
+            ? response.data
+            : [];
+
+          setPendingApplicationsCount(
+            applications.filter(
+              (application) =>
+                application.status === "APPLICATION_SUBMITTED" ||
+                application.status === "OWNER_REVIEW",
+            ).length,
+          );
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setPendingApplicationsCount(0);
+          setApplicationsError(
+            err instanceof Error
+              ? err.message
+              : "Unable to load tenant applications.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setApplicationsLoading(false);
+        }
+      }
+    }
+
+    loadApplications();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoaded, isSignedIn, getToken]);
+
   if (!isLoaded || !isSignedIn || loading) {
     return <LoadingScreen />;
   }
@@ -275,6 +343,9 @@ export default function OwnerDashboardPage() {
         inspectionRequests={inspectionRequests}
         inspectionRequestsLoading={inspectionRequestsLoading}
         inspectionRequestsError={inspectionRequestsError}
+        pendingApplicationsCount={pendingApplicationsCount}
+        applicationsLoading={applicationsLoading}
+        applicationsError={applicationsError}
         dashboardStats={dashboardStats}
         user={user}
         onAddProperty={() => {

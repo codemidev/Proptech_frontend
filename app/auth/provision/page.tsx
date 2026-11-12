@@ -41,11 +41,10 @@ export default function ProvisionPage() {
 
   const [needsRole, setNeedsRole] = useState(false);
   const [role, setRole] = useState<string | null>(null);
-  const [organizationId, setOrganizationId] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function provision(selectedRole: string, orgId: string) {
+  async function provision(selectedRole: string) {
     setError(null);
     setSubmitting(true);
 
@@ -56,6 +55,11 @@ export default function ProvisionPage() {
         throw new Error("Authentication token unavailable");
       }
 
+      const referralCode =
+        selectedRole === "AGENT"
+          ? sessionStorage.getItem("signup_referral_code")
+          : null;
+
       const response = await fetch(`${API_URL}/api/v1/auth/provision`, {
         method: "POST",
         headers: {
@@ -64,7 +68,7 @@ export default function ProvisionPage() {
         },
         body: JSON.stringify({
           role: selectedRole,
-          ...(orgId ? { organizationId: orgId } : {}),
+          ...(referralCode ? { referralCode } : {}),
         }),
       });
 
@@ -72,12 +76,12 @@ export default function ProvisionPage() {
 
       if (!response.ok) {
         throw new Error(
-          data?.error || data?.message || `Provisioning failed: ${response.status}`,
+          (typeof data?.error === "string" ? data.error : data?.error?.message) || data?.message || `Provisioning failed: ${response.status}`,
         );
       }
 
       sessionStorage.removeItem("signup_role");
-      sessionStorage.removeItem("signup_organization_id");
+      sessionStorage.removeItem("signup_referral_code");
 
       router.replace("/dashboard");
     } catch (err) {
@@ -98,11 +102,10 @@ export default function ProvisionPage() {
     }
 
     const storedRole = sessionStorage.getItem("signup_role");
-    const storedOrgId = sessionStorage.getItem("signup_organization_id") ?? "";
 
     if (storedRole) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      provision(storedRole, storedOrgId);
+      provision(storedRole);
     } else {
       setNeedsRole(true);
     }
@@ -130,25 +133,14 @@ export default function ProvisionPage() {
             ))}
           </div>
 
-          <div className="mt-4">
-            <label htmlFor="organizationId" className="mb-1 block text-xs font-medium text-black/60">
-              Organization ID (optional)
-            </label>
-            <input
-              id="organizationId"
-              value={organizationId}
-              onChange={(e) => setOrganizationId(e.target.value)}
-              placeholder="Leave blank to join Aviritech"
-              className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm text-neutral-900 outline-none placeholder:text-neutral-500 focus:border-brand-yellow"
-            />
-          </div>
+
 
           {error && <p className="mt-3 text-sm text-status-danger-fg">{error}</p>}
 
           <Button
             className="mt-5"
             disabled={!role || submitting}
-            onClick={() => role && provision(role, organizationId.trim())}
+            onClick={() => role && provision(role)}
           >
             {submitting ? "Setting up..." : "Continue"}
           </Button>

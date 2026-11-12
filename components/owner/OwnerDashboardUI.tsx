@@ -84,6 +84,9 @@ type Props = {
   inspectionRequests?: OwnerInspection[];
   inspectionRequestsLoading?: boolean;
   inspectionRequestsError?: string;
+  pendingApplicationsCount?: number;
+  applicationsLoading?: boolean;
+  applicationsError?: string;
   dashboardStats?: DashboardStats | null;
   user?: {
     firstName?: string | null;
@@ -144,6 +147,9 @@ export function OwnerDashboardUI({
   inspectionRequests = [],
   inspectionRequestsLoading = false,
   inspectionRequestsError = "",
+  pendingApplicationsCount = 0,
+  applicationsLoading = false,
+  applicationsError = "",
   dashboardStats,
   user,
   onTenantApplications,
@@ -209,7 +215,9 @@ export function OwnerDashboardUI({
             </h1>
           </div>
 
-          <div className="flex items-center gap-3">{/* Profile */}
+          <div className="flex items-center gap-3">
+
+            {/* Profile */}
             <div className="relative">
 
               {/* Profile Avatar */}
@@ -352,8 +360,22 @@ export function OwnerDashboardUI({
                     <Icon size={17} className="!text-[#111111]" />
                   </span>
 
-                  <span className="!text-[#111111] text-xs font-semibold">
-                    {action.label}
+                  <span className="flex w-full items-center justify-between gap-2">
+                    <span className="!text-[#111111] text-xs font-semibold">
+                      {action.label}
+                    </span>
+
+                    {action.label === "Tenant Apps" &&
+                      pendingApplicationsCount > 0 && (
+                        <span
+                          className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#FACC15] px-1.5 text-[10px] font-bold text-[#1A3C6E]"
+                          aria-label={`${pendingApplicationsCount} pending applications`}
+                        >
+                          {pendingApplicationsCount > 99
+                            ? "99+"
+                            : pendingApplicationsCount}
+                        </span>
+                      )}
                   </span>
                 </button>
               );
@@ -589,6 +611,19 @@ export function OwnerDashboardUI({
 
           <div className="space-y-3">
             <DashboardRow
+              icon={<UserRound size={18} />}
+              title="Tenant Applications"
+              value={
+                applicationsLoading
+                  ? "Loading..."
+                  : applicationsError
+                    ? "Unable to load applications"
+                    : `${pendingApplicationsCount} pending`
+              }
+              onClick={onTenantApplications}
+            />
+
+            <DashboardRow
               icon={<ClipboardCheck size={18} />}
               title="Inspection Requests"
               value={
@@ -686,7 +721,6 @@ export function OwnerDashboardUI({
               icon={<Home size={19} />}
               label="Home"
               active
-              count={totalProperties}
             />
 
             <BottomNavItem
@@ -702,7 +736,6 @@ export function OwnerDashboardUI({
             <BottomNavItem
               icon={<Activity size={19} />}
               label="Activity"
-              count={pendingInspectionCount}
             />
 
             <BottomNavItem
@@ -807,14 +840,17 @@ function DashboardRow({
   icon,
   title,
   value,
+  onClick,
 }: {
   icon: ReactNode;
   title: string;
   value: string;
+  onClick?: () => void;
 }) {
   return (
     <button
       type="button"
+      onClick={onClick}
       className="flex w-full items-center gap-3 rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-slate-100 transition hover:shadow-md"
     >
       <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50">
@@ -843,12 +879,10 @@ function BottomNavItem({
   icon,
   label,
   active = false,
-  count = 0,
 }: {
   icon: ReactNode;
   label: string;
   active?: boolean;
-  count?: number;
 }) {
   return (
     <button
@@ -859,15 +893,7 @@ function BottomNavItem({
           : "text-slate-400"
       }`}
     >
-      <span className="relative inline-flex">
-        {icon}
-        {count > 0 && (
-          <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#FACC15] px-1 text-[9px] font-extrabold leading-none text-[#111315] shadow-sm">
-            {count > 99 ? "99+" : count}
-          </span>
-        )}
-        {active && <span aria-hidden="true" className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-[#FACC15] ring-2 ring-white animate-pulse" />}
-      </span>
+      {icon}
 
       <span>{label}</span>
     </button>
