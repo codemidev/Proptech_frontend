@@ -49,7 +49,7 @@ export default function LandVaultPaymentCallback() {
       if (
         !reference ||
         !transactionId ||
-        paymentStatus.toLowerCase() !== "successful"
+        !["successful", "completed"].includes(paymentStatus.trim().toLowerCase())
       ) {
         if (!cancelled) {
           setState("failed");
