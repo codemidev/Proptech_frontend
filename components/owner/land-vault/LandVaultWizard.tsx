@@ -68,6 +68,11 @@ type LocationDistrict = LocationOption & {
   cityId: string | null;
 };
 
+type LocationEstate = LocationOption & {
+  districtId: string;
+  description?: string | null;
+};
+
 type LocationApiResponse<T> = {
   success: boolean;
   data: T;
@@ -413,6 +418,13 @@ export function LandVaultWizard() {
   const [selectedLgaId, setSelectedLgaId] = useState("");
   const [selectedCityId, setSelectedCityId] = useState("");
   const [selectedDistrictId, setSelectedDistrictId] = useState("");
+  const [locationEstates, setLocationEstates] = useState<LocationEstate[]>([]);
+  const [selectedEstateId, setSelectedEstateId] = useState("");
+  const [newEstateName, setNewEstateName] = useState("");
+  const [newEstateDescription, setNewEstateDescription] = useState("");
+  const [estatesLoading, setEstatesLoading] = useState(false);
+  const [creatingEstate, setCreatingEstate] = useState(false);
+  const [estateError, setEstateError] = useState("");
   const [locationsLoading, setLocationsLoading] = useState(false);
   const [lgasLoading, setLgasLoading] = useState(false);
   const [citiesLoading, setCitiesLoading] = useState(false);
@@ -643,6 +655,60 @@ export function LandVaultWizard() {
     };
   }, [selectedLgaId, getToken]);
 
+  // Load estates belonging to the selected district.
+  useEffect(() => {
+    if (!selectedDistrictId) {
+      setLocationEstates([]);
+      setSelectedEstateId("");
+      setEstatesLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadDistrictEstates() {
+      try {
+        setEstatesLoading(true);
+        setEstateError("");
+
+        const response =
+          await apiFetch<LocationApiResponse<LocationEstate[]>>(
+            `/api/v1/locations/estates?districtId=${encodeURIComponent(selectedDistrictId)}`,
+            getToken,
+          );
+
+        if (!cancelled) {
+          setLocationEstates(response.data);
+          setSelectedEstateId((current) =>
+            response.data.some((estate) => estate.id === current)
+              ? current
+              : "",
+          );
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setLocationEstates([]);
+          setSelectedEstateId("");
+          setEstateError(
+            error instanceof Error
+              ? error.message
+              : "Unable to load estates for this district.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setEstatesLoading(false);
+        }
+      }
+    }
+
+    void loadDistrictEstates();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedDistrictId, getToken]);
+
   const filteredLocationCities = useMemo(
     () =>
       selectedLgaId
@@ -693,6 +759,53 @@ export function LandVaultWizard() {
     setSurveyDocumentFiles((current) => [...current, ...valid]);
   }
 
+  async function createEstate() {
+    const name = newEstateName.trim();
+
+    if (!selectedDistrictId) {
+      setEstateError("Select a district before creating an estate.");
+      return;
+    }
+
+    if (!name) {
+      setEstateError("Enter the estate name.");
+      return;
+    }
+
+    try {
+      setCreatingEstate(true);
+      setEstateError("");
+
+      const response = await apiFetch<LocationApiResponse<LocationEstate>>(
+        "/api/v1/locations/estates",
+        getToken,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            districtId: selectedDistrictId,
+            name,
+            description: newEstateDescription.trim() || null,
+          }),
+        },
+      );
+
+      const estate = response.data;
+
+      setLocationEstates((current) =>
+        [...current, estate].sort((a, b) => a.name.localeCompare(b.name)),
+      );
+      setSelectedEstateId(estate.id);
+      setNewEstateName("");
+      setNewEstateDescription("");
+    } catch (error) {
+      setEstateError(
+        error instanceof Error ? error.message : "Unable to create estate.",
+      );
+    } finally {
+      setCreatingEstate(false);
+    }
+  }
+
   async function submit() {
     if (submitting) return;
 
@@ -725,16 +838,27 @@ export function LandVaultWizard() {
     const selectedCity = locationCities.find(
       (item) => item.id === selectedCityId,
     );
+    const selectedDistrict = locationDistricts.find(
+      (item) => item.id === selectedDistrictId,
+    );
+    const selectedEstate = locationEstates.find(
+      (item) => item.id === selectedEstateId,
+    );
 
     if (
       !address.trim() ||
       !selectedCountryId ||
       !selectedStateId ||
+      !selectedLgaId ||
       !selectedCityId ||
-      !selectedCity
+      !selectedCity ||
+      !selectedDistrictId ||
+      !selectedDistrict ||
+      !selectedEstateId ||
+      !selectedEstate
     ) {
       setSubmitError(
-        "Enter the property address and select a state and city before continuing.",
+        "Enter the property address and select the state, LGA, city, district and estate before continuing.",
       );
       setStep(2);
       return;
@@ -751,9 +875,9 @@ export function LandVaultWizard() {
       return;
     }
 
-    if (selectedDistrictId && !selectedLgaId) {
+    if (!selectedDistrict || !selectedEstate) {
       setSubmitError(
-        "Select a Local Government Area before selecting a district.",
+        "Select a valid district and an estate within that district.",
       );
       setStep(2);
       return;
@@ -873,9 +997,12 @@ export function LandVaultWizard() {
           body: JSON.stringify({
             countryId: selectedCountryId,
             stateId: selectedStateId,
-            ...(selectedLgaId ? { localGovernmentId: selectedLgaId } : {}),
+            localGovernmentId: selectedLgaId,
             cityId: selectedCityId,
-            ...(selectedDistrictId ? { districtId: selectedDistrictId } : {}),
+            districtId: selectedDistrictId,
+            districtName: selectedDistrict.name,
+            estateId: selectedEstateId,
+            estateName: selectedEstate.name,
             addressLine1: address.trim(),
           }),
         },
@@ -1353,6 +1480,9 @@ export function LandVaultWizard() {
                       setSelectedLgaId("");
                       setSelectedCityId("");
                       setSelectedDistrictId("");
+                      setSelectedEstateId("");
+                      setLocationEstates([]);
+                      setEstateError("");
                       setLocationLgas([]);
                       setLocationCities([]);
                       setLocationDistricts([]);
@@ -1385,6 +1515,9 @@ export function LandVaultWizard() {
                       setSelectedLgaId(event.target.value);
                       setSelectedCityId("");
                       setSelectedDistrictId("");
+                      setSelectedEstateId("");
+                      setLocationEstates([]);
+                      setEstateError("");
                       setLocationDistricts([]);
                       setLga(selected?.name ?? "");
                     }}
@@ -1413,6 +1546,9 @@ export function LandVaultWizard() {
                     onChange={(event) => {
                       setSelectedCityId(event.target.value);
                       setSelectedDistrictId("");
+                      setSelectedEstateId("");
+                      setLocationEstates([]);
+                      setEstateError("");
                     }}
                   >
                     <option value="">
@@ -1436,16 +1572,21 @@ export function LandVaultWizard() {
                     className={inputClass}
                     value={selectedDistrictId}
                     disabled={!selectedLgaId || districtsLoading}
-                    onChange={(event) =>
-                      setSelectedDistrictId(event.target.value)
-                    }
+                    onChange={(event) => {
+                      setSelectedDistrictId(event.target.value);
+                      setSelectedEstateId("");
+                      setLocationEstates([]);
+                      setEstateError("");
+                      setNewEstateName("");
+                      setNewEstateDescription("");
+                    }}
                   >
                     <option value="">
                       {!selectedLgaId
                         ? "Select an LGA first"
                         : districtsLoading
                           ? "Loading districts..."
-                          : "Select district (optional)"}
+                          : "Select district"}
                     </option>
                     {locationDistricts.map((item) => (
                       <option key={item.id} value={item.id}>
@@ -1454,6 +1595,66 @@ export function LandVaultWizard() {
                     ))}
                   </select>
                 </div>
+
+                <div>
+                  <label className={labelClass}>Estate</label>
+                  <select
+                    className={inputClass}
+                    value={selectedEstateId}
+                    disabled={!selectedDistrictId || estatesLoading}
+                    onChange={(event) => setSelectedEstateId(event.target.value)}
+                  >
+                    <option value="">
+                      {!selectedDistrictId
+                        ? "Select a district first"
+                        : estatesLoading
+                          ? "Loading estates..."
+                          : "Select estate"}
+                    </option>
+                    {locationEstates.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  <div className="mt-3 grid gap-2">
+                    <input
+                      className={inputClass}
+                      value={newEstateName}
+                      disabled={!selectedDistrictId || creatingEstate}
+                      onChange={(event) => setNewEstateName(event.target.value)}
+                      placeholder="New estate name"
+                    />
+                    <input
+                      className={inputClass}
+                      value={newEstateDescription}
+                      disabled={!selectedDistrictId || creatingEstate}
+                      onChange={(event) =>
+                        setNewEstateDescription(event.target.value)
+                      }
+                      placeholder="Estate description (optional)"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void createEstate()}
+                      disabled={
+                        !selectedDistrictId ||
+                        !newEstateName.trim() ||
+                        creatingEstate
+                      }
+                      className="w-fit rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {creatingEstate ? "Creating estate..." : "Create estate"}
+                    </button>
+                  </div>
+                </div>
+
+                {estateError && (
+                  <p className="sm:col-span-2 text-sm text-red-600" role="alert">
+                    {estateError}
+                  </p>
+                )}
 
                 {locationError && (
                   <p className="sm:col-span-2 text-sm text-red-600" role="alert">
