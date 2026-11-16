@@ -3,7 +3,6 @@
 import { UserButton, useAuth, useUser } from "@clerk/nextjs";
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
-import { LoadingScreen } from "@/components/shell/LoadingScreen";
 import { DashboardHeader } from "@/components/shell/DashboardHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
 
@@ -236,10 +235,6 @@ export default function AdminDashboard() {
     }
   }
 
-  if (loading) {
-    return <LoadingScreen message="Loading your admin dashboard..." />;
-  }
-
   const displayName =
     user?.firstName ||
     user?.primaryEmailAddress?.emailAddress?.split("@")[0] ||
@@ -432,13 +427,8 @@ export default function AdminDashboard() {
 
               <button
                 onClick={loadDashboard}
-                disabled={loading}
                 className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#FACC15] px-5 text-sm font-bold text-slate-950 transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <RefreshIcon
-                  className={loading ? "animate-spin" : ""}
-                />
-
                 Refresh
               </button>
             </div>
@@ -1241,25 +1231,6 @@ function CheckIcon({
       strokeWidth="2.5"
     >
       <path d="m5 12 4 4L19 6" />
-    </svg>
-  );
-}
-
-function RefreshIcon({
-  className = "h-4 w-4",
-}: {
-  className?: string;
-}) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 5v4h4" />
-      <path d="M4 13a8.1 8.1 0 0 0 15.5 2M20 19v-4h-4" />
     </svg>
   );
 }
