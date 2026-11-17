@@ -7,8 +7,12 @@ import { apiFetch } from "@/lib/api";
 type Permission = { id: string; name: string; resource: string; action: string; description?: string | null };
 type AdminAccount = {
   id: string; email: string; firstName: string | null; lastName: string | null;
-  role: "ADMIN"; isActive: boolean; permissions: Permission[];
-  invitationStatus?: "PENDING" | "ACCEPTED" | "EXPIRED" | "REVOKED"; createdAt: string;
+  role: "ADMIN"; isActive: boolean; permissions: Permission[]; createdAt: string;
+};
+type AdminInvitation = {
+  id: string; email: string; firstName: string; lastName: string;
+  status: "PENDING" | "FAILED"; expiresAt: string; createdAt: string;
+  failureReason?: string | null; permissions: Permission[];
 };
 type ApiResponse<T> = { success: boolean; data: T; message?: string };
 const field = "mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-sm text-slate-900 outline-none focus:border-yellow-500 focus:ring-2 focus:ring-yellow-100";
@@ -16,6 +20,7 @@ const field = "mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3.5 
 export default function SuperAdminDashboard() {
   const { getToken } = useAuth();
   const [admins, setAdmins] = useState<AdminAccount[]>([]);
+  const [invitations, setInvitations] = useState<AdminInvitation[]>([]);
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -32,10 +37,10 @@ export default function SuperAdminDashboard() {
     setLoading(true); setError("");
     try {
       const [a, p] = await Promise.all([
-        apiFetch<ApiResponse<{ admins: AdminAccount[] }>>("/api/v1/super-admin/admins", getToken),
+        apiFetch<ApiResponse<{ admins: AdminAccount[]; invitations: AdminInvitation[] }>>("/api/v1/super-admin/admins", getToken),
         apiFetch<ApiResponse<{ permissions: Permission[] }>>("/api/v1/super-admin/permissions", getToken),
       ]);
-      setAdmins(a.data.admins); setPermissions(p.data.permissions);
+      setAdmins(a.data.admins); setInvitations(a.data.invitations ?? []); setPermissions(p.data.permissions);
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to load administrator access."); }
     finally { setLoading(false); }
   }, [getToken]);
@@ -101,6 +106,19 @@ export default function SuperAdminDashboard() {
     finally { setSaving(false); }
   }
 
+  async function revokeInvitation(invitation: AdminInvitation) {
+    if (!window.confirm(`Revoke the pending invitation for ${invitation.email}?`)) return;
+    setSaving(true); setError(""); setNotice("");
+    try {
+      await apiFetch(`/api/v1/super-admin/invitations/${encodeURIComponent(invitation.id)}/revoke`, getToken, {
+        method: "PATCH",
+      });
+      setNotice("Admin invitation revoked.");
+      await load();
+    } catch (e) { setError(e instanceof Error ? e.message : "Unable to revoke invitation."); }
+    finally { setSaving(false); }
+  }
+
   const formOpen = creating || Boolean(editing);
   return (
     <main className="min-h-screen bg-[#f7f7f5] px-4 py-8 text-slate-950 sm:px-6 lg:px-8">
@@ -155,6 +173,31 @@ export default function SuperAdminDashboard() {
               <button onClick={() => setEditing(null)} className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold">Cancel</button>
               <button disabled={saving} onClick={() => void savePermissions()} className="rounded-xl bg-[#111827] px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{saving ? "Saving..." : "Save privileges"}</button>
             </div></>}
+          </section>
+        )}
+
+        {invitations.length > 0 && (
+          <section className="mt-7 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-100 px-5 py-5 sm:px-6">
+              <h2 className="font-bold">Admin invitations</h2>
+              <p className="mt-1 text-sm text-slate-500">Pending invitations and delivery failures.</p>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {invitations.map(invitation => (
+                <article key={invitation.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold">{invitation.firstName} {invitation.lastName}</p>
+                    <p className="text-sm text-slate-500">{invitation.email}</p>
+                    <p className="mt-1 text-xs text-slate-500">{invitation.permissions.length} privileges · Expires {new Date(invitation.expiresAt).toLocaleString()}</p>
+                    {invitation.failureReason && <p className="mt-1 text-xs text-red-700">{invitation.failureReason}</p>}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${invitation.status === "PENDING" ? "bg-yellow-50 text-yellow-800" : "bg-red-50 text-red-700"}`}>{invitation.status === "PENDING" ? "Pending" : "Delivery failed"}</span>
+                    {invitation.status === "PENDING" && <button disabled={saving} onClick={() => void revokeInvitation(invitation)} className="rounded-lg border border-red-200 px-3.5 py-2 text-xs font-bold text-red-700 hover:bg-red-50 disabled:opacity-50">Revoke</button>}
+                  </div>
+                </article>
+              ))}
+            </div>
           </section>
         )}
 
