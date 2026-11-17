@@ -784,7 +784,8 @@ export default function ApplicationsPage() {
                         </section>
                       )}
 
-                      {["ACTIVATION_PENDING", "ACTIVATED", "TENANCY_ACTIVE"].includes(item.applicationStatus ?? "") && (
+                      {["ACTIVATION_PENDING", "ACTIVATED", "TENANCY_ACTIVE"].includes(item.applicationStatus ?? "") &&
+                        !hasConfirmedRent(item) && (
                         <section className="space-y-3 rounded-xl border border-[#FACC15]/60 bg-[#FACC15]/10 p-4">
                           <div>
                             <h3 className="text-sm font-semibold text-black">Pay rent directly</h3>
