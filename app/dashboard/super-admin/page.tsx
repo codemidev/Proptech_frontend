@@ -54,6 +54,12 @@ export default function SuperAdminDashboard() {
   function togglePermission(id: string) {
     setSelected(current => current.includes(id) ? current.filter(x => x !== id) : [...current, id]);
   }
+  function togglePermissions(ids: string[]) {
+    setSelected(current => {
+      const allSelected = ids.length > 0 && ids.every(id => current.includes(id));
+      return allSelected ? current.filter(id => !ids.includes(id)) : Array.from(new Set([...current, ...ids]));
+    });
+  }
   function startCreate() {
     setFirstName(""); setLastName(""); setEmail(""); setSelected([]);
     setEditing(null); setCreating(true); setError(""); setNotice("");
@@ -66,7 +72,7 @@ export default function SuperAdminDashboard() {
   async function createAdmin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); setSaving(true); setError(""); setNotice("");
     try {
-      await apiFetch("/api/v1/super-admin/admins", getToken, {
+      const response = await apiFetch<ApiResponse<{ admin: { deliveryMethod?: "aviritech_mail_service" | "clerk_fallback" } }>>("/api/v1/super-admin/admins", getToken, {
         method: "POST",
         body: JSON.stringify({
           firstName: firstName.trim(), lastName: lastName.trim(),
@@ -74,7 +80,9 @@ export default function SuperAdminDashboard() {
         }),
       });
       setCreating(false);
-      setNotice("Admin account created. The secure sign-in/setup email has been sent.");
+      setNotice(response.data.admin.deliveryMethod === "clerk_fallback"
+        ? "Admin account created. The Aviritech mail service was unavailable, so the secure setup email was sent through Clerk."
+        : "Admin account created. The secure sign-in/setup email has been sent.");
       await load();
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to create admin account."); }
     finally { setSaving(false); }
@@ -162,14 +170,14 @@ export default function SuperAdminDashboard() {
                 <div className="sm:col-span-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
                   <strong>ADMIN</strong><span className="ml-2 text-xs text-slate-500">Platform-wide account, restricted by selected privileges</span>
                 </div>
-                <div className="sm:col-span-2"><PermissionPicker groups={groups} selected={selected} onToggle={togglePermission} /></div>
+                <div className="sm:col-span-2"><PermissionPicker groups={groups} selected={selected} onToggle={togglePermission} onToggleMany={togglePermissions} /></div>
                 <div className="flex justify-end gap-3 sm:col-span-2">
                   <button type="button" onClick={() => setCreating(false)} className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold">Cancel</button>
-                  <button disabled={saving} className="rounded-xl bg-[#111827] px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{saving ? "Creating..." : "Create admin & send email"}</button>
+                  <button type="submit" disabled={saving} className="rounded-xl bg-[#111827] px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{saving ? "Creating..." : "Create admin & send email"}</button>
                 </div>
               </form>
             )}
-            {editing && <><PermissionPicker groups={groups} selected={selected} onToggle={togglePermission} /><div className="mt-6 flex justify-end gap-3">
+            {editing && <><PermissionPicker groups={groups} selected={selected} onToggle={togglePermission} onToggleMany={togglePermissions} /><div className="mt-6 flex justify-end gap-3">
               <button onClick={() => setEditing(null)} className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold">Cancel</button>
               <button disabled={saving} onClick={() => void savePermissions()} className="rounded-xl bg-[#111827] px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{saving ? "Saving..." : "Save privileges"}</button>
             </div></>}
@@ -227,19 +235,38 @@ export default function SuperAdminDashboard() {
   );
 }
 
-function PermissionPicker({ groups, selected, onToggle }: {
-  groups: Record<string, Permission[]>; selected: string[]; onToggle: (id: string) => void;
+function PermissionPicker({ groups, selected, onToggle, onToggleMany }: {
+  groups: Record<string, Permission[]>;
+  selected: string[];
+  onToggle: (id: string) => void;
+  onToggleMany: (ids: string[]) => void;
 }) {
   const resources = Object.keys(groups).sort();
+  const allIds = resources.flatMap(resource => groups[resource].map(permission => permission.id));
+  const allSelected = allIds.length > 0 && allIds.every(id => selected.includes(id));
   if (!resources.length) return <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm text-slate-500">The backend permission catalogue has not loaded. It must return the available permissions before access can be assigned.</div>;
   return <div className="mt-2">
-    <div className="mb-3 flex items-center justify-between"><h3 className="text-sm font-bold">Assigned privileges</h3><span className="text-xs text-slate-500">{selected.length} selected</span></div>
-    <div className="grid gap-3 lg:grid-cols-2">{resources.map(resource => <fieldset key={resource} className="rounded-xl border border-slate-200 p-4">
-      <legend className="px-1 text-sm font-bold capitalize text-slate-800">{resource.replace(/[_-]/g, " ")}</legend>
-      <div className="mt-2 space-y-2">{groups[resource].map(p => <label key={p.id} className="flex cursor-pointer items-start gap-3 rounded-lg px-2 py-2 hover:bg-slate-50">
-        <input type="checkbox" checked={selected.includes(p.id)} onChange={() => onToggle(p.id)} className="mt-0.5 h-4 w-4 accent-yellow-500" />
-        <span><span className="block text-sm font-semibold text-slate-800">{p.name}</span>{p.description && <span className="mt-0.5 block text-xs text-slate-500">{p.description}</span>}</span>
-      </label>)}</div>
-    </fieldset>)}</div>
+    <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+      <div><h3 className="text-sm font-bold">Assigned privileges</h3><span className="text-xs text-slate-500">{selected.length} selected</span></div>
+      <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold hover:bg-slate-50">
+        <input type="checkbox" checked={allSelected} onChange={() => onToggleMany(allIds)} className="h-4 w-4 accent-yellow-500" />
+        Select all privileges
+      </label>
+    </div>
+    <div className="grid gap-3 lg:grid-cols-2">{resources.map(resource => {
+      const groupIds = groups[resource].map(permission => permission.id);
+      const groupSelected = groupIds.length > 0 && groupIds.every(id => selected.includes(id));
+      return <fieldset key={resource} className="rounded-xl border border-slate-200 p-4">
+        <legend className="px-1 text-sm font-bold capitalize text-slate-800">{resource.replace(/[_-]/g, " ")}</legend>
+        <label className="mb-2 flex cursor-pointer items-center gap-2 px-2 py-1 text-xs font-semibold text-slate-600">
+          <input type="checkbox" checked={groupSelected} onChange={() => onToggleMany(groupIds)} className="h-4 w-4 accent-yellow-500" />
+          Select all {resource.replace(/[_-]/g, " ")}
+        </label>
+        <div className="space-y-2">{groups[resource].map(p => <label key={p.id} className="flex cursor-pointer items-start gap-3 rounded-lg px-2 py-2 hover:bg-slate-50">
+          <input type="checkbox" checked={selected.includes(p.id)} onChange={() => onToggle(p.id)} className="mt-0.5 h-4 w-4 accent-yellow-500" />
+          <span><span className="block text-sm font-semibold text-slate-800">{p.name}</span>{p.description && <span className="mt-0.5 block text-xs text-slate-500">{p.description}</span>}</span>
+        </label>)}</div>
+      </fieldset>;
+    })}</div>
   </div>;
 }
