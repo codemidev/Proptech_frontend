@@ -68,10 +68,11 @@ export function AgentIdentityVerificationPanel({
 
   async function submitScannedCode(rawValue: string) {
     if (busy) return;
-    const match = rawValue.trim().match(/AVIRITECH-AGENT:([A-Za-z0-9_-]{20,128})/i);
-    const code = match?.[1];
-    if (!code) {
-      setError("This is not an Aviritech Agent ID QR code. Do not proceed.");
+    const scannedValue = rawValue.trim();
+    const match = scannedValue.match(/^AVIRITECH-AGENT:([A-Za-z0-9_-]{20,128})$/i);
+    const code = match?.[1] ?? scannedValue;
+    if (!code || code.length > 512) {
+      setError("This QR code cannot be checked. Do not proceed.");
       return;
     }
 
