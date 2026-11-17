@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useAuth } from "@clerk/nextjs";
+import { UserButton, useAuth } from "@clerk/nextjs";
 import { apiFetch } from "@/lib/api";
 
 type Permission = { id: string; name: string; resource: string; action: string; description?: string | null };
@@ -114,7 +114,14 @@ export default function SuperAdminDashboard() {
               New accounts receive ADMIN privileges only; Super Admin cannot be assigned here.
             </p>
           </div>
-          <button onClick={startCreate} className="h-11 rounded-xl bg-[#FACC15] px-5 text-sm font-bold text-slate-950 hover:bg-yellow-300">+ Create admin</button>
+          <div className="flex items-center gap-3">
+            <div className="hidden text-right sm:block">
+              <p className="text-xs font-semibold text-slate-700">Profile & password</p>
+              <p className="text-[11px] text-slate-500">Manage your account securely</p>
+            </div>
+            <UserButton />
+            <button onClick={startCreate} className="h-11 rounded-xl bg-[#FACC15] px-5 text-sm font-bold text-slate-950 hover:bg-yellow-300">+ Create admin</button>
+          </div>
         </header>
 
         {error && <div role="alert" className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
