@@ -124,7 +124,7 @@ export function AgentIdentityVerificationPanel({
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: {
-          facingMode: { ideal: "environment" },
+          facingMode: { exact: "environment" },
           width: { ideal: 1280 },
           height: { ideal: 720 },
         },
