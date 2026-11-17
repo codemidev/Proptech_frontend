@@ -8,7 +8,12 @@ import { apiFetch } from "@/lib/api";
 type VerifyResponse = {
   success: boolean;
   message?: string;
-  data?: { status?: "SUCCESS" | "FAILED" };
+  data?: { status?: "SUCCESS" | "FAILED" | "PENDING" };
+};
+
+type ActionResponse = {
+  success: boolean;
+  message?: string;
 };
 
 export default function ContractPaymentCallbackPage() {
@@ -35,21 +40,27 @@ export default function ContractPaymentCallbackPage() {
         params.get("transaction_id") || params.get("id") || "";
       const gatewayStatus = (params.get("status") || "").toLowerCase();
       const inspectionId = params.get("inspectionId") || "";
+      const propertyTransactionId = params.get("propertyTransactionId") || "";
+      const tenancyId = params.get("tenancyId") || "";
+      const isTransactionBasedFlow = Boolean(propertyTransactionId && tenancyId);
 
       if (gatewayStatus === "cancelled") {
-        setMessage("Payment was cancelled. Return to Tenant Applications to retry lease setup.");
+        setMessage("Payment was cancelled. Return to Tenant Applications to check its status before trying again.");
         return;
       }
-      if (!reference || !transactionId || !inspectionId) {
+
+      if (
+        !reference ||
+        (!transactionId && !isTransactionBasedFlow) ||
+        (!isTransactionBasedFlow && !inspectionId)
+      ) {
         setMessage("The payment return is missing required details. Check payment status before retrying.");
         return;
       }
 
       try {
         const verificationQuery = new URLSearchParams({ reference });
-        if (transactionId) {
-          verificationQuery.set("transactionId", transactionId);
-        }
+        if (transactionId) verificationQuery.set("transactionId", transactionId);
 
         const result = await apiFetch<VerifyResponse>(
           `/api/v1/payments/verify?${verificationQuery.toString()}`,
@@ -63,6 +74,35 @@ export default function ContractPaymentCallbackPage() {
         }
 
         setVerified(true);
+
+        // Current owner flow pays against a PropertyTransaction and linked
+        // DRAFT tenancy. Once the owner's payment is verified, generate the
+        // contract directly against that existing tenancy. Do not fall back
+        // to the retired inspection/session-draft lease-creation flow.
+        if (isTransactionBasedFlow) {
+          const generated = await apiFetch<ActionResponse>(
+            `/api/v1/leases/${encodeURIComponent(tenancyId)}/contract/generate`,
+            getToken,
+            { method: "POST" },
+          );
+
+          if (!active) return;
+          if (!generated.success) {
+            setMessage(
+              generated.message ||
+                "Payment is confirmed, but contract generation needs attention. Return to Tenant Applications and retry contract generation without paying again.",
+            );
+            return;
+          }
+
+          setMessage(
+            "Owner payment verified and the contract has been generated. The tenant can reload My Applications to review and explicitly accept it.",
+          );
+          return;
+        }
+
+        // Backwards-compatible handling for the retired inspection-based
+        // lease setup flow.
         const draftKey = `aviritech:lease-setup:${inspectionId}`;
         const rawDraft = sessionStorage.getItem(draftKey);
 
@@ -129,7 +169,7 @@ export default function ContractPaymentCallbackPage() {
         <p className="text-sm font-semibold uppercase tracking-wide text-gray-500">Aviritech PropTech</p>
         <h1 className="mt-3 text-2xl font-bold text-gray-900">Lease contract setup payment</h1>
         <p role="status" className="mt-4 text-sm leading-6 text-gray-600">{message}</p>
-        {verified && <p className="mt-3 text-sm text-green-700">Payment confirmed for the owner account that initiated it.</p>}
+        {verified && <p className="mt-3 text-sm text-green-700">Payment confirmed for the owner account that initiated this payment.</p>}
         <Link href="/dashboard/owner/tenant-applications" className="mt-6 inline-flex rounded-lg bg-yellow-400 px-5 py-3 text-sm font-semibold text-gray-900 hover:bg-yellow-300">
           Return to Tenant Applications
         </Link>
