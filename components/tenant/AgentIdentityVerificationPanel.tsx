@@ -210,17 +210,15 @@ export function AgentIdentityVerificationPanel({
           </button>
         )}
 
-        {cameraOpen && (
-          <div className="relative overflow-hidden rounded-2xl bg-slate-950">
-            <video ref={videoRef} playsInline muted className="aspect-[4/3] w-full object-cover" />
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <div className="h-44 w-64 rounded-2xl border-2 border-[#FACC15] shadow-[0_0_0_999px_rgba(0,0,0,0.32)]" />
-            </div>
-            <p className="absolute bottom-3 left-3 right-3 rounded-lg bg-black/60 px-3 py-2 text-center text-xs font-medium text-white">
-              Hold the agent&apos;s QR card inside the frame
-            </p>
+        <div className={cameraOpen ? "relative overflow-hidden rounded-2xl bg-slate-950" : "hidden"}>
+          <video ref={videoRef} playsInline muted className="aspect-[4/3] w-full object-cover" />
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <div className="h-44 w-64 rounded-2xl border-2 border-[#FACC15] shadow-[0_0_0_999px_rgba(0,0,0,0.32)]" />
           </div>
-        )}
+          <p className="absolute bottom-3 left-3 right-3 rounded-lg bg-black/60 px-3 py-2 text-center text-xs font-medium text-white">
+            Hold the agent&apos;s QR card inside the frame
+          </p>
+        </div>
 
         {busy && <p className="mt-3 flex items-center gap-2 text-xs font-semibold text-slate-600"><Loader2 size={14} className="animate-spin" /> Verifying identity and inspection assignment…</p>}
 
@@ -242,7 +240,24 @@ export function AgentIdentityVerificationPanel({
             <p className="mt-3 rounded-xl bg-white/80 p-3 text-xs leading-5 text-slate-700">{message}</p>
             {!confirmed ? (
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                <button type="button" onClick={() => { setConfirmed(true); onVerified(agent); }} className="min-h-11 rounded-xl bg-[#1A3C6E] px-3 py-2.5 text-xs font-bold text-white hover:bg-[#142f57]">Photo matches — continue</button>
+                <button type="button" disabled={reporting} onClick={async () => {
+                  setReporting(true);
+                  setError("");
+                  try {
+                    await apiFetch(
+                      "/api/v1/inspections/" + encodeURIComponent(inspectionId) + "/confirm-agent",
+                      getToken,
+                      { method: "POST" },
+                    );
+                    setConfirmed(true);
+                    onVerified(agent);
+                  } catch (err) {
+                    setError(err instanceof Error ? err.message : "Unable to confirm the agent photo.");
+                    onRevoked();
+                  } finally {
+                    setReporting(false);
+                  }
+                }} className="min-h-11 rounded-xl bg-[#1A3C6E] px-3 py-2.5 text-xs font-bold text-white hover:bg-[#142f57] disabled:opacity-60">{reporting ? "Confirming…" : "Photo matches — continue"}</button>
                 <button type="button" disabled={reporting} onClick={() => void reportMismatch()} className="min-h-11 rounded-xl border border-red-200 bg-white px-3 py-2.5 text-xs font-bold text-red-700 hover:bg-red-50 disabled:opacity-60">{reporting ? "Reporting…" : "Photo does not match"}</button>
               </div>
             ) : (
