@@ -367,7 +367,10 @@ export default function AdminDashboard() {
 
               <SidebarItem
                 icon={<ShieldIcon />}
-                label="Roles & Permissions"
+                label="Admin Access"
+                onClick={() => {
+                  window.location.href = "/dashboard/super-admin";
+                }}
               />
 
               <SidebarItem
