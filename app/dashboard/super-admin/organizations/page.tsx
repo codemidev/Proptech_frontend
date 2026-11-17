@@ -8,6 +8,7 @@ import { apiFetch } from "@/lib/api";
 type Permission = { id: string; name: string; resource: string; action: string; description?: string | null };
 type Organization = { id: string; name: string; slug: string; type: string; email?: string | null; isActive: boolean; _count?: { users: number; properties: number } };
 type Admin = { id: string; email: string; firstName?: string | null; lastName?: string | null; isActive: boolean; status: string; permissions: Permission[] };
+type ExistingAdmin = { id: string; email: string; firstName?: string | null; lastName?: string | null; isActive: boolean; status: string };
 type Invitation = { id: string; email: string; firstName: string; lastName: string; status: string; expiresAt: string; permissions: Array<{ permission: Permission }> };
 type ApiResponse<T> = { success: boolean; data: T; message?: string };
 const field = "mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-sm text-slate-900 outline-none focus:border-yellow-500 focus:ring-2 focus:ring-yellow-100";
@@ -18,6 +19,9 @@ export default function OrganizationManagementPage() {
   const [organizationId, setOrganizationId] = useState("");
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [admins, setAdmins] = useState<Admin[]>([]);
+  const [unassignedAdmins, setUnassignedAdmins] = useState<ExistingAdmin[]>([]);
+  const [showExistingAdminForm, setShowExistingAdminForm] = useState(false);
+  const [existingAdminId, setExistingAdminId] = useState("");
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -51,6 +55,11 @@ export default function OrganizationManagementPage() {
     setOrganizations(orgResponse.data.organizations);
     setPermissions(permissionResponse.data.permissions);
     setOrganizationId(current => current || orgResponse.data.organizations.find(item => item.isActive)?.id || "");
+  }, [getToken]);
+
+  const loadUnassignedAdmins = useCallback(async () => {
+    const response = await apiFetch<ApiResponse<{ admins: ExistingAdmin[] }>>("/api/v1/admin/organization-admins/unassigned-admins", getToken);
+    setUnassignedAdmins(response.data.admins);
   }, [getToken]);
 
   const loadOrganizationData = useCallback(async (id: string) => {
@@ -107,6 +116,22 @@ export default function OrganizationManagementPage() {
       setShowAdminForm(false); setFirstName(""); setLastName(""); setEmail(""); setSelected([]);
       await loadOrganizationData(organizationId);
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to invite organization admin."); }
+    finally { setSaving(false); }
+  }
+
+  async function assignExistingAdmin(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!organizationId || !existingAdminId) return;
+    setSaving(true); setError(""); setNotice("");
+    try {
+      await apiFetch("/api/v1/admin/organization-admins/admins/" + encodeURIComponent(existingAdminId) + "/assign", getToken, {
+        method: "POST",
+        body: JSON.stringify({ organizationId, permissionIds: selected }),
+      });
+      setNotice("Existing administrator assigned to " + (selectedOrganization?.name ?? "the organization") + ".");
+      setShowExistingAdminForm(false); setExistingAdminId(""); setSelected([]);
+      await Promise.all([loadOrganizationData(organizationId), loadUnassignedAdmins()]);
+    } catch (e) { setError(e instanceof Error ? e.message : "Unable to assign existing administrator."); }
     finally { setSaving(false); }
   }
 
@@ -167,7 +192,19 @@ export default function OrganizationManagementPage() {
         {loading ? <p className="mt-5 text-sm text-slate-500">Loading organizations...</p> : <div className="mt-5 grid gap-3 md:grid-cols-2">{organizations.map(org => <button key={org.id} type="button" onClick={() => setOrganizationId(org.id)} className={`rounded-xl border p-4 text-left transition ${organizationId === org.id ? "border-yellow-400 bg-yellow-50" : "border-slate-200 hover:border-slate-400"}`}><div className="flex items-center justify-between gap-2"><span className="font-bold">{org.name}</span><span className="text-[10px] font-bold uppercase text-slate-500">{org.type}</span></div><p className="mt-1 text-xs text-slate-500">{org.slug} · {org._count?.users ?? 0} users · {org._count?.properties ?? 0} properties</p></button>)}</div>}
       </section>
       {selectedOrganization && <section className="mt-7 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Selected organization</p><h2 className="mt-1 text-xl font-bold">{selectedOrganization.name}</h2><p className="mt-1 text-sm text-slate-500">Organization admins are scoped to this organization only.</p></div><button onClick={() => { setSelected([]); setEditingAdmin(null); setHandoff(null); setShowAdminForm(value => !value); }} className="rounded-xl bg-[#1A3C6E] px-4 py-2.5 text-sm font-bold text-white">+ Invite organization admin</button></div>
+        <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Selected organization</p><h2 className="mt-1 text-xl font-bold">{selectedOrganization.name}</h2><p className="mt-1 text-sm text-slate-500">Organization admins are scoped to this organization only.</p></div><div className="flex flex-wrap gap-2"><button onClick={() => { setSelected([]); setEditingAdmin(null); setHandoff(null); setShowExistingAdminForm(value => !value); setShowAdminForm(false); if (!showExistingAdminForm) void loadUnassignedAdmins().catch(e => setError(e instanceof Error ? e.message : "Unable to load unassigned admins.")); }} className="rounded-xl border border-[#1A3C6E] px-4 py-2.5 text-sm font-bold text-[#1A3C6E]">+ Add existing admin</button><button onClick={() => { setSelected([]); setEditingAdmin(null); setHandoff(null); setShowAdminForm(value => !value); setShowExistingAdminForm(false); }} className="rounded-xl bg-[#1A3C6E] px-4 py-2.5 text-sm font-bold text-white">+ Invite organization admin</button></div></div>
+        {showExistingAdminForm && <form onSubmit={assignExistingAdmin} className="mt-6 grid gap-4 sm:grid-cols-2">
+          <label className="text-sm font-semibold sm:col-span-2">Existing platform administrator
+            <select className={field} value={existingAdminId} onChange={e => setExistingAdminId(e.target.value)} required>
+              <option value="">Select an unassigned admin</option>
+              {unassignedAdmins.map(admin => <option key={admin.id} value={admin.id}>{[admin.firstName, admin.lastName].filter(Boolean).join(" ") || admin.email} · {admin.email}</option>)}
+            </select>
+            <span className="mt-1 block text-xs font-normal text-slate-500">Only active ADMIN accounts without an organization are listed. Their existing login is retained.</span>
+          </label>
+          {unassignedAdmins.length === 0 && <p className="text-sm text-slate-500 sm:col-span-2">There are currently no unassigned platform administrators.</p>}
+          <div className="sm:col-span-2"><PermissionPicker groups={groups} selected={selected} onToggle={togglePermission} onToggleMany={toggleMany} /></div>
+          <div className="flex justify-end gap-2 sm:col-span-2"><button type="button" onClick={() => setShowExistingAdminForm(false)} className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold">Cancel</button><button disabled={saving || !existingAdminId} className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{saving ? "Assigning..." : "Assign to organization"}</button></div>
+        </form>}
         {showAdminForm && <form onSubmit={createAdmin} className="mt-6 grid gap-4 sm:grid-cols-2">
           <label className="text-sm font-semibold">First name<input className={field} value={firstName} onChange={e => setFirstName(e.target.value)} required /></label><label className="text-sm font-semibold">Last name<input className={field} value={lastName} onChange={e => setLastName(e.target.value)} required /></label><label className="text-sm font-semibold sm:col-span-2">Admin email<input className={field} type="email" value={email} onChange={e => setEmail(e.target.value)} required /></label>
           <div className="sm:col-span-2"><PermissionPicker groups={groups} selected={selected} onToggle={togglePermission} onToggleMany={toggleMany} /></div>
