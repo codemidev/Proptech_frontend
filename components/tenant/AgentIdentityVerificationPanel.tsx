@@ -81,7 +81,7 @@ export function AgentIdentityVerificationPanel({
     setMessage("");
     try {
       const response = await apiFetch<VerificationResponse>(
-        \`/api/v1/inspections/\${encodeURIComponent(inspectionId)}/verify-agent\`,
+        `/api/v1/inspections/${encodeURIComponent(inspectionId)}/verify-agent`,
         getToken,
         {
           method: "POST",
@@ -165,7 +165,7 @@ export function AgentIdentityVerificationPanel({
     setError("");
     try {
       const response = await apiFetch<{ success: boolean; message?: string }>(
-        \`/api/v1/inspections/\${encodeURIComponent(inspectionId)}/report-agent-mismatch\`,
+        `/api/v1/inspections/${encodeURIComponent(inspectionId)}/report-agent-mismatch`,
         getToken,
         { method: "POST" },
       );
