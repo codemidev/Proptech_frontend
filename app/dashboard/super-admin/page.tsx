@@ -213,7 +213,6 @@ export default function SuperAdminDashboard() {
             return <article key={admin.id} className="flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
               <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h3 className="truncate text-sm font-bold">{name}</h3>
                 <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${admin.isActive ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>{admin.isActive ? "Active" : "Inactive"}</span>
-                {admin.invitationStatus === "PENDING" && <span className="rounded-full bg-yellow-50 px-2.5 py-1 text-[10px] font-bold text-yellow-800">Invitation pending</span>}
               </div><p className="mt-1 text-sm text-slate-500">{admin.email}</p><p className="mt-2 text-xs text-slate-500">ADMIN · {admin.permissions.length} assigned permissions</p></div>
               <div className="flex flex-wrap gap-2"><button onClick={() => startEdit(admin)} className="rounded-lg border border-slate-300 px-3.5 py-2 text-xs font-bold hover:bg-slate-50">Edit privileges</button>
                 <button disabled={saving} onClick={() => void changeStatus(admin)} className={`rounded-lg px-3.5 py-2 text-xs font-bold disabled:opacity-50 ${admin.isActive ? "border border-red-200 text-red-700 hover:bg-red-50" : "bg-slate-900 text-white"}`}>{admin.isActive ? "Deactivate" : "Reactivate"}</button></div>
