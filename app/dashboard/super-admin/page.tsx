@@ -72,7 +72,7 @@ export default function SuperAdminDashboard() {
   async function createAdmin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); setSaving(true); setError(""); setNotice("");
     try {
-      await apiFetch("/api/v1/super-admin/admins", getToken, {
+      const response = await apiFetch<ApiResponse<{ admin: { deliveryMethod?: "aviritech_mail_service" | "clerk_fallback" } }>>("/api/v1/super-admin/admins", getToken, {
         method: "POST",
         body: JSON.stringify({
           firstName: firstName.trim(), lastName: lastName.trim(),
@@ -80,7 +80,9 @@ export default function SuperAdminDashboard() {
         }),
       });
       setCreating(false);
-      setNotice("Admin account created. The secure sign-in/setup email has been sent.");
+      setNotice(response.data.admin.deliveryMethod === "clerk_fallback"
+        ? "Admin account created. The Aviritech mail service was unavailable, so the secure setup email was sent through Clerk."
+        : "Admin account created. The secure sign-in/setup email has been sent.");
       await load();
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to create admin account."); }
     finally { setSaving(false); }
