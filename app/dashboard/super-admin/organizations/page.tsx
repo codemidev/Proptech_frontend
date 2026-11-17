@@ -36,6 +36,7 @@ export default function OrganizationManagementPage() {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
+  const [editingAdmin, setEditingAdmin] = useState<Admin | null>(null);
 
   const selectedOrganization = organizations.find(item => item.id === organizationId);
   const groups = useMemo(() => permissions.reduce<Record<string, Permission[]>>((acc, item) => {
@@ -119,6 +120,19 @@ export default function OrganizationManagementPage() {
     finally { setSaving(false); }
   }
 
+  async function saveAdminPermissions() {
+    if (!editingAdmin) return;
+    setSaving(true); setError("");
+    try {
+      await apiFetch("/api/v1/admin/organization-admins/admins/" + encodeURIComponent(editingAdmin.id) + "/permissions", getToken, {
+        method: "PATCH", body: JSON.stringify({ permissionIds: selected }),
+      });
+      setNotice("Organization admin permissions updated.");
+      setEditingAdmin(null); await loadOrganizationData(organizationId);
+    } catch (e) { setError(e instanceof Error ? e.message : "Unable to update admin permissions."); }
+    finally { setSaving(false); }
+  }
+
   async function changeStatus(admin: Admin) {
     const isActive = !admin.isActive;
     if (!window.confirm((isActive ? "Reactivate " : "Deactivate ") + admin.email + "?")) return;
@@ -153,13 +167,15 @@ export default function OrganizationManagementPage() {
         {loading ? <p className="mt-5 text-sm text-slate-500">Loading organizations...</p> : <div className="mt-5 grid gap-3 md:grid-cols-2">{organizations.map(org => <button key={org.id} type="button" onClick={() => setOrganizationId(org.id)} className={`rounded-xl border p-4 text-left transition ${organizationId === org.id ? "border-yellow-400 bg-yellow-50" : "border-slate-200 hover:border-slate-400"}`}><div className="flex items-center justify-between gap-2"><span className="font-bold">{org.name}</span><span className="text-[10px] font-bold uppercase text-slate-500">{org.type}</span></div><p className="mt-1 text-xs text-slate-500">{org.slug} · {org._count?.users ?? 0} users · {org._count?.properties ?? 0} properties</p></button>)}</div>}
       </section>
       {selectedOrganization && <section className="mt-7 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Selected organization</p><h2 className="mt-1 text-xl font-bold">{selectedOrganization.name}</h2><p className="mt-1 text-sm text-slate-500">Organization admins are scoped to this organization only.</p></div><button onClick={() => { setSelected([]); setHandoff(null); setShowAdminForm(value => !value); }} className="rounded-xl bg-[#1A3C6E] px-4 py-2.5 text-sm font-bold text-white">+ Invite organization admin</button></div>
+        <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Selected organization</p><h2 className="mt-1 text-xl font-bold">{selectedOrganization.name}</h2><p className="mt-1 text-sm text-slate-500">Organization admins are scoped to this organization only.</p></div><button onClick={() => { setSelected([]); setEditingAdmin(null); setHandoff(null); setShowAdminForm(value => !value); }} className="rounded-xl bg-[#1A3C6E] px-4 py-2.5 text-sm font-bold text-white">+ Invite organization admin</button></div>
         {showAdminForm && <form onSubmit={createAdmin} className="mt-6 grid gap-4 sm:grid-cols-2">
           <label className="text-sm font-semibold">First name<input className={field} value={firstName} onChange={e => setFirstName(e.target.value)} required /></label><label className="text-sm font-semibold">Last name<input className={field} value={lastName} onChange={e => setLastName(e.target.value)} required /></label><label className="text-sm font-semibold sm:col-span-2">Admin email<input className={field} type="email" value={email} onChange={e => setEmail(e.target.value)} required /></label>
           <div className="sm:col-span-2"><PermissionPicker groups={groups} selected={selected} onToggle={togglePermission} onToggleMany={toggleMany} /></div>
           <div className="flex justify-end gap-2 sm:col-span-2"><button type="button" onClick={() => setShowAdminForm(false)} className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold">Cancel</button><button disabled={saving} className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{saving ? "Sending..." : "Send secure invitation"}</button></div>
         </form>}
-        <div className="mt-7"><h3 className="font-bold">Organization administrators</h3>{admins.length ? <div className="mt-3 divide-y divide-slate-100">{admins.map(admin => <div key={admin.id} className="flex flex-wrap items-center justify-between gap-3 py-4"><div><p className="text-sm font-bold">{[admin.firstName,admin.lastName].filter(Boolean).join(" ") || admin.email}</p><p className="mt-1 text-xs text-slate-500">{admin.email} · {admin.permissions.length} assigned permissions</p><span className={`mt-1 inline-block rounded-full px-2 py-1 text-[10px] font-bold ${admin.isActive ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>{admin.isActive ? "Active" : "Inactive"}</span></div><button disabled={saving} onClick={() => void changeStatus(admin)} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold">{admin.isActive ? "Deactivate" : "Reactivate"}</button></div>)}</div> : <p className="mt-3 text-sm text-slate-500">No organization admins have been provisioned yet.</p>}</div>
+        <div className="mt-7"><h3 className="font-bold">Organization administrators</h3>{admins.length ? <div className="mt-3 divide-y divide-slate-100">{admins.map(admin => <div key={admin.id} className="flex flex-wrap items-center justify-between gap-3 py-4"><div><p className="text-sm font-bold">{[admin.firstName,admin.lastName].filter(Boolean).join(" ") || admin.email}</p><p className="mt-1 text-xs text-slate-500">{admin.email} · {admin.permissions.length} assigned permissions</p><span className={`mt-1 inline-block rounded-full px-2 py-1 text-[10px] font-bold ${admin.isActive ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>{admin.isActive ? "Active" : "Inactive"}</span></div><button onClick={() => { setEditingAdmin(admin); setSelected(admin.permissions.map(permission => permission.id)); setShowAdminForm(false); }} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold">Edit permissions</button><button disabled={saving} onClick={() => void changeStatus(admin)} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold">{admin.isActive ? "Deactivate" : "Reactivate"}</button></div>)}</div> : <p className="mt-3 text-sm text-slate-500">No organization admins have been provisioned yet.</p>}
+          {editingAdmin && <div className="mt-5 rounded-xl border border-slate-200 p-4"><div className="flex items-center justify-between gap-3"><h4 className="text-sm font-bold">Permissions: {editingAdmin.email}</h4><button onClick={() => setEditingAdmin(null)} className="text-xs font-semibold text-slate-500">Cancel</button></div><div className="mt-4"><PermissionPicker groups={groups} selected={selected} onToggle={togglePermission} onToggleMany={toggleMany} /></div><div className="mt-4 flex justify-end"><button disabled={saving} onClick={() => void saveAdminPermissions()} className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">{saving ? "Saving..." : "Save permissions"}</button></div></div>}
+        </div>
         <div className="mt-7"><h3 className="font-bold">Admin invitations</h3>{invitations.length ? <div className="mt-3 divide-y divide-slate-100">{invitations.map(invitation => <div key={invitation.id} className="flex flex-wrap items-center justify-between gap-3 py-4"><div><p className="text-sm font-bold">{invitation.firstName} {invitation.lastName}</p><p className="mt-1 text-xs text-slate-500">{invitation.email} · {invitation.permissions.length} permissions · expires {new Date(invitation.expiresAt).toLocaleString()}</p><span className="mt-1 inline-block text-[10px] font-bold uppercase text-slate-500">{invitation.status}</span></div>{invitation.status === "PENDING" && <button disabled={saving} onClick={() => void revokeInvitation(invitation)} className="rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-700">Revoke</button>}</div>)}</div> : <p className="mt-3 text-sm text-slate-500">No invitations for this organization.</p>}</div>
       </section>}
     </div>
