@@ -9,6 +9,7 @@ type AdminAccount = {
   id: string; email: string; firstName: string | null; lastName: string | null;
   role: "ADMIN"; isActive: boolean; permissions: Permission[]; createdAt: string;
 };
+type AdminHandoff = { firstName: string; lastName: string; email: string; setupUrl: string; signInUrl: string; expiresAt: string; deliveryMethod: "aviritech_mail_service" | "manual_link" };
 type AdminInvitation = {
   id: string; email: string; firstName: string; lastName: string;
   status: "PENDING" | "FAILED"; expiresAt: string; createdAt: string;
@@ -32,6 +33,7 @@ export default function SuperAdminDashboard() {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
+  const [adminHandoff, setAdminHandoff] = useState<AdminHandoff | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -61,7 +63,7 @@ export default function SuperAdminDashboard() {
     });
   }
   function startCreate() {
-    setFirstName(""); setLastName(""); setEmail(""); setSelected([]);
+    setFirstName(""); setLastName(""); setEmail(""); setSelected([]); setAdminHandoff(null);
     setEditing(null); setCreating(true); setError(""); setNotice("");
   }
   function startEdit(admin: AdminAccount) {
@@ -72,7 +74,7 @@ export default function SuperAdminDashboard() {
   async function createAdmin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); setSaving(true); setError(""); setNotice("");
     try {
-      const response = await apiFetch<ApiResponse<{ admin: { deliveryMethod?: "aviritech_mail_service" | "clerk_fallback" } }>>("/api/v1/super-admin/admins", getToken, {
+      const response = await apiFetch<ApiResponse<{ admin: AdminHandoff & { id: string; role: "ADMIN"; status: "PENDING" } }>>("/api/v1/super-admin/admins", getToken, {
         method: "POST",
         body: JSON.stringify({
           firstName: firstName.trim(), lastName: lastName.trim(),
@@ -80,9 +82,10 @@ export default function SuperAdminDashboard() {
         }),
       });
       setCreating(false);
-      setNotice(response.data.admin.deliveryMethod === "clerk_fallback"
-        ? "Admin account created. The Aviritech mail service was unavailable, so the secure setup email was sent through Clerk."
-        : "Admin account created. The secure sign-in/setup email has been sent.");
+      setAdminHandoff(response.data.admin);
+      setNotice(response.data.admin.deliveryMethod === "manual_link"
+        ? "Admin invitation created. Email delivery failed, but the secure setup link is ready to copy and share manually."
+        : "Admin invitation created and the secure setup email has been sent.");
       await load();
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to create admin account."); }
     finally { setSaving(false); }
@@ -153,12 +156,36 @@ export default function SuperAdminDashboard() {
         {error && <div role="alert" className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
         {notice && <div role="status" className="mt-6 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">{notice}</div>}
 
+        {adminHandoff && (
+          <section className="mt-7 rounded-2xl border border-yellow-300 bg-yellow-50 p-5 shadow-sm sm:p-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-yellow-800">Admin invitation created</p>
+                <h2 className="mt-1 text-lg font-bold text-slate-950">{adminHandoff.firstName} {adminHandoff.lastName}</h2>
+                <p className="mt-1 text-sm text-slate-700">Login email: <strong>{adminHandoff.email}</strong></p>
+                <p className="mt-1 text-xs text-slate-600">The admin account becomes active after the invitee completes secure setup. Link expires {new Date(adminHandoff.expiresAt).toLocaleString()}.</p>
+              </div>
+              <button type="button" onClick={() => void navigator.clipboard.writeText(`Aviritech PropTech Admin Setup\nLogin email: ${adminHandoff.email}\nSetup link: ${adminHandoff.setupUrl}\nSign-in page: ${adminHandoff.signInUrl}`)} className="shrink-0 rounded-xl bg-[#1A3C6E] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#142f57]">Copy admin login details</button>
+            </div>
+            <div className="mt-4 grid gap-3">
+              <label className="text-xs font-bold text-slate-700">Secure setup link
+                <div className="mt-1 flex flex-col gap-2 sm:flex-row">
+                  <input readOnly value={adminHandoff.setupUrl} className="min-w-0 flex-1 rounded-lg border border-yellow-300 bg-white px-3 py-2 text-xs text-slate-800" />
+                  <button type="button" onClick={() => void navigator.clipboard.writeText(adminHandoff.setupUrl)} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-800">Copy setup link</button>
+                </div>
+              </label>
+              <p className="text-xs text-slate-600">Sign-in page: <a className="font-semibold underline" href={adminHandoff.signInUrl} target="_blank" rel="noreferrer">{adminHandoff.signInUrl}</a></p>
+              {adminHandoff.deliveryMethod === "manual_link" && <p className="text-xs font-semibold text-amber-800">Email was not delivered. Share the setup link directly with the intended admin using a trusted channel.</p>}
+            </div>
+          </section>
+        )}
+
         {formOpen && (
           <section className="mt-7 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-lg font-bold">{editing ? `Privileges: ${editing.email}` : "Create platform admin"}</h2>
-                <p className="mt-1 text-sm text-slate-500">{editing ? "Choose the privileges this administrator should have." : "The system sends a secure sign-in/setup link. Passwords are never emailed."}</p>
+                <p className="mt-1 text-sm text-slate-500">{editing ? "Choose the privileges this administrator should have." : "The system creates a secure, seven-day setup link. If email delivery fails, you can copy and share the link manually. Passwords are never emailed."}</p>
               </div>
               <button onClick={() => { setCreating(false); setEditing(null); }} aria-label="Close" className="rounded-lg px-3 py-1 text-xl text-slate-500 hover:bg-slate-100">×</button>
             </div>
@@ -173,7 +200,7 @@ export default function SuperAdminDashboard() {
                 <div className="sm:col-span-2"><PermissionPicker groups={groups} selected={selected} onToggle={togglePermission} onToggleMany={togglePermissions} /></div>
                 <div className="flex justify-end gap-3 sm:col-span-2">
                   <button type="button" onClick={() => setCreating(false)} className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold">Cancel</button>
-                  <button type="submit" disabled={saving} className="rounded-xl bg-[#111827] px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{saving ? "Creating..." : "Create admin & send email"}</button>
+                  <button type="submit" disabled={saving} className="rounded-xl bg-[#111827] px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{saving ? "Creating..." : "Create admin & setup link"}</button>
                 </div>
               </form>
             )}
