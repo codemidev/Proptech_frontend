@@ -1,0 +1,71 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useAuth } from "@clerk/nextjs";
+import { BadgeCheck, Copy, ShieldCheck } from "lucide-react";
+import { apiFetch, resolveMediaUrl } from "@/lib/api";
+
+type AgentCardData = {
+  agent: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    phoneNumber: string | null;
+    avatar: string | null;
+    clearanceTier: string | null;
+  };
+  credentialCode: string;
+  qrPayload: string;
+  issuedAt: string;
+};
+
+export function AgentVerificationIdCard() {
+  const { getToken } = useAuth();
+  const [data, setData] = useState<AgentCardData | null>(null);
+  const [notice, setNotice] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    apiFetch<{ success: boolean; data: AgentCardData }>("/api/v1/agents/me/verification-card", getToken)
+      .then((response) => { if (active) setData(response.data); })
+      .catch(() => { if (active) setData(null); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [getToken]);
+
+  async function copyId() {
+    if (!data) return;
+    try {
+      await navigator.clipboard.writeText(data.qrPayload);
+      setNotice("Agent QR code text copied.");
+    } catch {
+      setNotice("Copy is unavailable on this browser.");
+    }
+  }
+
+  if (loading || !data) return null;
+  const fullName = [data.agent.firstName, data.agent.lastName].filter(Boolean).join(" ") || "Aviritech Agent";
+  const qrImage = "https://api.qrserver.com/v1/create-qr-code/?size=280x280&margin=10&data=" + encodeURIComponent(data.qrPayload);
+
+  return (
+    <section className="mt-5 overflow-hidden rounded-2xl border border-[#1A3C6E]/15 bg-white shadow-sm">
+      <div className="flex items-center justify-between gap-3 bg-[#1A3C6E] px-5 py-4 text-white">
+        <div className="flex items-center gap-2"><ShieldCheck size={19} /><div><p className="text-sm font-bold">Aviritech Verified Agent ID</p><p className="text-[10px] text-white/70">Digital inspection identity card</p></div></div>
+        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/15 px-2.5 py-1 text-[10px] font-bold text-emerald-200"><BadgeCheck size={13} /> VERIFIED</span>
+      </div>
+      <div className="grid gap-4 p-4 sm:grid-cols-[1fr_auto] sm:items-center sm:p-5">
+        <div className="flex min-w-0 items-center gap-3">
+          {data.agent.avatar ? <img src={resolveMediaUrl(data.agent.avatar)} alt={fullName} className="h-16 w-16 rounded-xl border border-slate-200 object-cover" /> : <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-slate-100 text-2xl font-bold text-[#1A3C6E]">{fullName.slice(0,1)}</div>}
+          <div className="min-w-0"><p className="text-base font-bold text-slate-950">{fullName}</p><p className="mt-1 text-xs text-slate-500">{data.agent.phoneNumber || "Aviritech Agent"}</p><p className="mt-2 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">KYC cleared · {data.agent.clearanceTier?.replaceAll("_"," ") || "Verified agent"}</p></div>
+        </div>
+        <div className="flex flex-col items-center rounded-xl border border-slate-100 bg-white p-2">
+          <img src={qrImage} alt="Aviritech agent verification QR code" width={156} height={156} className="h-36 w-36 object-contain" />
+          <button type="button" onClick={() => void copyId()} className="mt-1 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-semibold text-[#1A3C6E] hover:bg-slate-50"><Copy size={13} /> Copy QR payload</button>
+        </div>
+      </div>
+      <p className="border-t border-slate-100 bg-slate-50 px-4 py-3 text-[11px] leading-5 text-slate-500">Show this card to the tenant at the inspection. The QR only identifies your Aviritech profile; the tenant&apos;s scan also checks your live assignment and compares your photo. Never lend or share this ID.</p>
+      {notice && <p role="status" className="px-4 pb-3 text-xs text-emerald-700">{notice}</p>}
+    </section>
+  );
+}

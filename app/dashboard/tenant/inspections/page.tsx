@@ -8,6 +8,7 @@ import { TopAppBar } from "@/components/shell/TopAppBar";
 import PaginationControls from "@/components/PaginationControls";
 import { Card } from "@/components/ui/Card";
 import { StatusPill } from "@/components/ui/StatusPill";
+import { AgentIdentityVerificationPanel } from "@/components/tenant/AgentIdentityVerificationPanel";
 
 type Inspection = {
   id: string;
@@ -67,6 +68,7 @@ export default function MyInspectionsPage() {
   const [error, setError] = useState("");
   const [actionBusyId, setActionBusyId] = useState<string | null>(null);
   const [rejectedInspectionIds, setRejectedInspectionIds] = useState<string[]>([]);
+  const [verifiedAgentInspectionIds, setVerifiedAgentInspectionIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -239,8 +241,37 @@ export default function MyInspectionsPage() {
 
                   {selected && (
                     <div className="border-t border-black/10 bg-black/[0.02] p-4">
+                      {inspection.status !== "CANCELLED" &&
+                       inspection.status !== "MISSED" &&
+                       !rejectedInspectionIds.includes(inspection.id) &&
+                       !(inspection.applicationStatus && [
+                         "APPLICATION_SUBMITTED", "OWNER_REVIEW", "OWNER_APPROVED",
+                         "ACTIVATION_PENDING", "ACTIVATED", "TENANCY_ACTIVE",
+                       ].includes(inspection.applicationStatus)) && (
+                        <AgentIdentityVerificationPanel
+                          inspectionId={inspection.id}
+                          onVerified={() => setVerifiedAgentInspectionIds((current) =>
+                            current.includes(inspection.id) ? current : [...current, inspection.id]
+                          )}
+                          onRevoked={() => setVerifiedAgentInspectionIds((current) =>
+                            current.filter((id) => id !== inspection.id)
+                          )}
+                        />
+                      )}
+                      {!verifiedAgentInspectionIds.includes(inspection.id) &&
+                       inspection.status !== "CANCELLED" &&
+                       inspection.status !== "MISSED" &&
+                       !rejectedInspectionIds.includes(inspection.id) &&
+                       !(inspection.applicationStatus && [
+                         "APPLICATION_SUBMITTED", "OWNER_REVIEW", "OWNER_APPROVED",
+                         "ACTIVATION_PENDING", "ACTIVATED", "TENANCY_ACTIVE",
+                       ].includes(inspection.applicationStatus)) && (
+                        <p className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900">
+                          Accept & Apply and Reject remain locked until the assigned agent&apos;s QR ID is verified and the photo matches the person present.
+                        </p>
+                      )}
                       <p className="mb-3 text-sm text-black/60">
-                        Continue with this property or return to search.
+                        Continue only after completing the identity check.
                       </p>
                       <div className="flex flex-col gap-2 sm:flex-row">
                         {inspection.applicationStatus &&
@@ -285,7 +316,7 @@ export default function MyInspectionsPage() {
                               setActionBusyId(null);
                             }
                           }}
-                            disabled={actionBusyId === inspection.id || rejectedInspectionIds.includes(inspection.id)}
+                            disabled={actionBusyId === inspection.id || rejectedInspectionIds.includes(inspection.id) || !verifiedAgentInspectionIds.includes(inspection.id)}
                           className="min-h-11 flex-1 rounded-xl bg-brand-yellow px-4 py-2.5 text-sm font-semibold text-black transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/30 disabled:opacity-50"
                           >
                             Accept & Apply
@@ -304,7 +335,7 @@ export default function MyInspectionsPage() {
                         ) : (
                           <button
                             type="button"
-                            disabled={actionBusyId === inspection.id}
+                            disabled={actionBusyId === inspection.id || !verifiedAgentInspectionIds.includes(inspection.id)}
                             onClick={async () => {
                               if (actionBusyId) return;
                               setError("");

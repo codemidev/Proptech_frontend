@@ -1,6 +1,7 @@
 "use client";
 
 import { AgentClearanceStatusCard } from "@/components/agent/AgentClearanceStatusCard";
+import { AgentVerificationIdCard } from "@/components/agent/AgentVerificationIdCard";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth, useUser, UserButton } from "@clerk/nextjs";
@@ -2694,6 +2695,7 @@ if (!isSignedIn) {
           >
                         {/* AGENT_TIER_GOVERNANCE_CARD_V1 */}
                         <AgentClearanceStatusCard />
+                        <AgentVerificationIdCard />
 
             <div className="mt-6 border-t border-slate-100 pt-5 flex items-start justify-between gap-4">
               <div>
