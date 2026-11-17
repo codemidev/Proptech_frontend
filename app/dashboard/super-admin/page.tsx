@@ -165,7 +165,7 @@ export default function SuperAdminDashboard() {
                 <p className="mt-1 text-sm text-slate-700">Login email: <strong>{adminHandoff.email}</strong></p>
                 <p className="mt-1 text-xs text-slate-600">The admin account becomes active after the invitee completes secure setup. Link expires {new Date(adminHandoff.expiresAt).toLocaleString()}.</p>
               </div>
-              <button type="button" onClick={() => void navigator.clipboard.writeText(`Aviritech PropTech Admin Setup\\nLogin email: ${adminHandoff.email}\\nSetup link: ${adminHandoff.setupUrl}\\nSign-in page: ${adminHandoff.signInUrl}`)} className="shrink-0 rounded-xl bg-[#1A3C6E] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#142f57]">Copy admin login details</button>
+              <button type="button" onClick={() => void navigator.clipboard.writeText(`Aviritech PropTech Admin Setup\nLogin email: ${adminHandoff.email}\nSetup link: ${adminHandoff.setupUrl}\nSign-in page: ${adminHandoff.signInUrl}`)} className="shrink-0 rounded-xl bg-[#1A3C6E] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#142f57]">Copy admin login details</button>
             </div>
             <div className="mt-4 grid gap-3">
               <label className="text-xs font-bold text-slate-700">Secure setup link
