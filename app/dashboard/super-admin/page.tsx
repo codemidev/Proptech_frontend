@@ -9,7 +9,7 @@ type AdminAccount = {
   id: string; email: string; firstName: string | null; lastName: string | null;
   role: "ADMIN"; isActive: boolean; permissions: Permission[]; createdAt: string;
 };
-type AdminHandoff = { firstName: string; lastName: string; email: string; setupUrl: string; signInUrl: string; expiresAt: string; deliveryMethod: "aviritech_mail_service" | "manual_link" };
+type AdminHandoff = { id: string; firstName: string; lastName: string; email: string; initialPassword: string; signInUrl: string; isActive: boolean; status: "ACTIVE"; deliveryMethod: "aviritech_mail_service" | "manual_copy" };
 type AdminInvitation = {
   id: string; email: string; firstName: string; lastName: string;
   status: "PENDING" | "FAILED"; expiresAt: string; createdAt: string;
@@ -74,7 +74,7 @@ export default function SuperAdminDashboard() {
   async function createAdmin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); setSaving(true); setError(""); setNotice("");
     try {
-      const response = await apiFetch<ApiResponse<{ admin: AdminHandoff & { id: string; role: "ADMIN"; status: "PENDING" } }>>("/api/v1/super-admin/admins", getToken, {
+      const response = await apiFetch<ApiResponse<{ admin: AdminHandoff & { role: "ADMIN" } }>>("/api/v1/super-admin/admins", getToken, {
         method: "POST",
         body: JSON.stringify({
           firstName: firstName.trim(), lastName: lastName.trim(),
@@ -83,9 +83,9 @@ export default function SuperAdminDashboard() {
       });
       setCreating(false);
       setAdminHandoff(response.data.admin);
-      setNotice(response.data.admin.deliveryMethod === "manual_link"
-        ? "Admin invitation created. Email delivery failed, but the secure setup link is ready to copy and share manually."
-        : "Admin invitation created and the secure setup email has been sent.");
+      setNotice(response.data.admin.deliveryMethod === "manual_copy"
+        ? "Admin account created and privileges assigned. Email delivery failed; copy the login credentials below."
+        : "Admin account created, privileges assigned, and login credentials emailed successfully.");
       await load();
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to create admin account."); }
     finally { setSaving(false); }
@@ -160,23 +160,22 @@ export default function SuperAdminDashboard() {
           <section className="mt-7 rounded-2xl border border-yellow-300 bg-yellow-50 p-5 shadow-sm sm:p-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-yellow-800">Admin invitation created</p>
+                <p className="text-xs font-bold uppercase tracking-wide text-yellow-800">Admin account created · Active</p>
                 <h2 className="mt-1 text-lg font-bold text-slate-950">{adminHandoff.firstName} {adminHandoff.lastName}</h2>
-                <p className="mt-1 text-sm text-slate-700">Login email: <strong>{adminHandoff.email}</strong></p>
-                <p className="mt-1 text-xs text-slate-600">The admin account becomes active after the invitee completes secure setup. Link expires {new Date(adminHandoff.expiresAt).toLocaleString()}.</p>
+                <p className="mt-1 text-sm text-slate-700">The ADMIN account and selected privileges are already provisioned. The admin can sign in immediately.</p>
               </div>
-              <button type="button" onClick={() => void navigator.clipboard.writeText(`Aviritech PropTech Admin Setup\nLogin email: ${adminHandoff.email}\nSetup link: ${adminHandoff.setupUrl}\nSign-in page: ${adminHandoff.signInUrl}`)} className="shrink-0 rounded-xl bg-[#1A3C6E] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#142f57]">Copy admin login details</button>
+              <button type="button" onClick={() => void navigator.clipboard.writeText(`Aviritech PropTech Admin Login\nLogin email: ${adminHandoff.email}\nInitial password: ${adminHandoff.initialPassword}\nSign-in page: ${adminHandoff.signInUrl}`)} className="shrink-0 rounded-xl bg-[#1A3C6E] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#142f57]">Copy login credentials</button>
             </div>
-            <div className="mt-4 grid gap-3">
-              <label className="text-xs font-bold text-slate-700">Secure setup link
-                <div className="mt-1 flex flex-col gap-2 sm:flex-row">
-                  <input readOnly value={adminHandoff.setupUrl} className="min-w-0 flex-1 rounded-lg border border-yellow-300 bg-white px-3 py-2 text-xs text-slate-800" />
-                  <button type="button" onClick={() => void navigator.clipboard.writeText(adminHandoff.setupUrl)} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-800">Copy setup link</button>
-                </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <label className="text-xs font-bold text-slate-700">Login email
+                <input readOnly value={adminHandoff.email} className="mt-1 w-full rounded-lg border border-yellow-300 bg-white px-3 py-2.5 text-sm text-slate-900" />
               </label>
-              <p className="text-xs text-slate-600">Sign-in page: <a className="font-semibold underline" href={adminHandoff.signInUrl} target="_blank" rel="noreferrer">{adminHandoff.signInUrl}</a></p>
-              {adminHandoff.deliveryMethod === "manual_link" && <p className="text-xs font-semibold text-amber-800">Email was not delivered. Share the setup link directly with the intended admin using a trusted channel.</p>}
+              <label className="text-xs font-bold text-slate-700">Initial password · shown once
+                <input readOnly value={adminHandoff.initialPassword} className="mt-1 w-full rounded-lg border border-yellow-300 bg-white px-3 py-2.5 font-mono text-sm text-slate-900" />
+              </label>
             </div>
+            <p className="mt-3 text-xs text-slate-600">Sign-in page: <a className="font-semibold underline" href={adminHandoff.signInUrl} target="_blank" rel="noreferrer">{adminHandoff.signInUrl}</a>. The admin may change the password after signing in. This initial password is not stored or shown again after you leave this screen.</p>
+            {adminHandoff.deliveryMethod === "manual_copy" && <p className="mt-2 text-xs font-semibold text-amber-800">Email delivery failed. Use “Copy login credentials” and share them with the intended admin through a trusted channel.</p>}
           </section>
         )}
 
@@ -185,7 +184,7 @@ export default function SuperAdminDashboard() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-lg font-bold">{editing ? `Privileges: ${editing.email}` : "Create platform admin"}</h2>
-                <p className="mt-1 text-sm text-slate-500">{editing ? "Choose the privileges this administrator should have." : "The system creates a secure, seven-day setup link. If email delivery fails, you can copy and share the link manually. Passwords are never emailed."}</p>
+                <p className="mt-1 text-sm text-slate-500">{editing ? "Choose the privileges this administrator should have." : "The system creates an active ADMIN account with a secure initial password. Login details are emailed when delivery is available and can always be copied once from the confirmation below."}</p>
               </div>
               <button onClick={() => { setCreating(false); setEditing(null); }} aria-label="Close" className="rounded-lg px-3 py-1 text-xl text-slate-500 hover:bg-slate-100">×</button>
             </div>
@@ -200,7 +199,7 @@ export default function SuperAdminDashboard() {
                 <div className="sm:col-span-2"><PermissionPicker groups={groups} selected={selected} onToggle={togglePermission} onToggleMany={togglePermissions} /></div>
                 <div className="flex justify-end gap-3 sm:col-span-2">
                   <button type="button" onClick={() => setCreating(false)} className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold">Cancel</button>
-                  <button type="submit" disabled={saving} className="rounded-xl bg-[#111827] px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{saving ? "Creating..." : "Create admin & setup link"}</button>
+                  <button type="submit" disabled={saving} className="rounded-xl bg-[#111827] px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{saving ? "Creating..." : "Create admin account"}</button>
                 </div>
               </form>
             )}
@@ -214,8 +213,8 @@ export default function SuperAdminDashboard() {
         {invitations.length > 0 && (
           <section className="mt-7 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-100 px-5 py-5 sm:px-6">
-              <h2 className="font-bold">Admin invitations</h2>
-              <p className="mt-1 text-sm text-slate-500">Pending invitations and delivery failures.</p>
+              <h2 className="font-bold">Legacy admin invitations</h2>
+              <p className="mt-1 text-sm text-slate-500">These are older invite-based records. New admins are now created as active accounts and do not need to accept an invitation.</p>
             </div>
             <div className="divide-y divide-slate-100">
               {invitations.map(invitation => (
@@ -238,7 +237,7 @@ export default function SuperAdminDashboard() {
 
         <section className="mt-7 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="flex flex-col gap-2 border-b border-slate-100 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-            <div><h2 className="font-bold">Platform administrators</h2><p className="mt-1 text-sm text-slate-500">Manage account access, invitation status, and privileges.</p></div>
+            <div><h2 className="font-bold">Platform administrators</h2><p className="mt-1 text-sm text-slate-500">Manage active accounts, access status, and privileges.</p></div>
             <span className="w-fit rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{admins.length} accounts</span>
           </div>
           {loading ? <div className="space-y-3 p-6">{[1,2,3].map(i => <div key={i} className="h-16 animate-pulse rounded-xl bg-slate-100" />)}</div>
