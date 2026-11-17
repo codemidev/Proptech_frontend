@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { UserButton, useAuth } from "@clerk/nextjs";
+import Link from "next/link";
 import { apiFetch } from "@/lib/api";
 
 type Permission = { id: string; name: string; resource: string; action: string; description?: string | null };
@@ -149,6 +150,7 @@ export default function SuperAdminDashboard() {
               <p className="text-[11px] text-slate-500">Manage your account securely</p>
             </div>
             <UserButton />
+            <Link href="/dashboard/super-admin/organizations" className="h-11 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-800 hover:bg-slate-50">Organizations & admins</Link>
             <button onClick={startCreate} className="h-11 rounded-xl bg-[#FACC15] px-5 text-sm font-bold text-slate-950 hover:bg-yellow-300">+ Create admin</button>
           </div>
         </header>
