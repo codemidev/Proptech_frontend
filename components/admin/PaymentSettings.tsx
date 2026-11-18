@@ -296,7 +296,9 @@ export default function PaymentSettings() {
               fee: contractGenerationFee,
             },
             marketplaceKuun: {
-              accountName: form.marketplaceKuunAccountName.trim(),
+              ...(form.marketplaceKuunAccountName.trim()
+                ? { accountName: form.marketplaceKuunAccountName.trim() }
+                : {}),
               ...(form.marketplaceKuunAccountNumber.trim()
                 ? { accountNumber: form.marketplaceKuunAccountNumber.trim() }
                 : {}),
