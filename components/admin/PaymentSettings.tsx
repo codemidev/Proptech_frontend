@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { apiFetch } from "@/lib/api";
@@ -34,6 +35,13 @@ type PaymentSettingsResponse = {
       fee: number;
       currency: string;
     };
+    marketplaceKuun?: {
+      accountName: string;
+      accountNumberConfigured: boolean;
+      feePercent: number;
+      feeFixed: number;
+      enabled: boolean;
+    };
   };
 };
 
@@ -52,6 +60,10 @@ type PaymentForm = {
   aeroInspectionFee: string;
   aeroInspectionCurrency: string;
   contractGenerationFee: string;
+  marketplaceKuunAccountName: string;
+  marketplaceKuunAccountNumber: string;
+  marketplaceKuunFeePercent: string;
+  marketplaceKuunFeeFixed: string;
 };
 
 export default function PaymentSettings() {
@@ -72,10 +84,16 @@ export default function PaymentSettings() {
     aeroInspectionFee: "0",
     aeroInspectionCurrency: "NGN",
     contractGenerationFee: "2000",
+    marketplaceKuunAccountName: "",
+    marketplaceKuunAccountNumber: "",
+    marketplaceKuunFeePercent: "0",
+    marketplaceKuunFeeFixed: "0",
   });
 
   const [secretConfigured, setSecretConfigured] = useState(false);
   const [webhookConfigured, setWebhookConfigured] = useState(false);
+  const [marketplaceKuunAccountConfigured, setMarketplaceKuunAccountConfigured] = useState(false);
+  const [marketplaceKuunEnabled, setMarketplaceKuunEnabled] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -100,6 +118,7 @@ export default function PaymentSettings() {
         const inspection = response.data.inspection;
         const aeroInspection = response.data.aeroInspection;
         const contractGeneration = response.data.contractGeneration;
+        const marketplaceKuun = response.data.marketplaceKuun;
 
         setForm({
           mode: flutterwave.mode,
@@ -116,7 +135,13 @@ export default function PaymentSettings() {
           aeroInspectionFee: String(aeroInspection?.fee ?? 0),
           aeroInspectionCurrency: aeroInspection?.currency || "NGN",
           contractGenerationFee: String(contractGeneration?.fee ?? 2000),
+          marketplaceKuunAccountName: marketplaceKuun?.accountName || "",
+          marketplaceKuunAccountNumber: "",
+          marketplaceKuunFeePercent: String(marketplaceKuun?.feePercent ?? 0),
+          marketplaceKuunFeeFixed: String(marketplaceKuun?.feeFixed ?? 0),
         });
+        setMarketplaceKuunAccountConfigured(Boolean(marketplaceKuun?.accountNumberConfigured));
+        setMarketplaceKuunEnabled(Boolean(marketplaceKuun?.enabled));
 
         setSecretConfigured(flutterwave.secretKeyConfigured);
         setWebhookConfigured(flutterwave.webhookSecretConfigured);
@@ -208,6 +233,24 @@ export default function PaymentSettings() {
       setError("Enter a valid non-negative whole-number contract-generation fee.");
       return;
     }
+    const kuunFeePercent = Number(form.marketplaceKuunFeePercent);
+    const kuunFeeFixed = Number(form.marketplaceKuunFeeFixed);
+    if (!Number.isFinite(kuunFeePercent) || kuunFeePercent < 0 || kuunFeePercent > 100) {
+      setError("Marketplace Kuun fee percentage must be between 0 and 100.");
+      return;
+    }
+    if (!Number.isFinite(kuunFeeFixed) || kuunFeeFixed < 0 || kuunFeeFixed > 5000000) {
+      setError("Marketplace Kuun fixed fee must be between 0 and 5,000,000.");
+      return;
+    }
+    if (form.marketplaceKuunAccountName.trim() && form.marketplaceKuunAccountName.trim().length < 2) {
+      setError("Aviritech Kuun account name must contain at least 2 characters.");
+      return;
+    }
+    if (form.marketplaceKuunAccountNumber.trim() && !/^[0-9]{8,20}$/.test(form.marketplaceKuunAccountNumber.trim())) {
+      setError("Aviritech Kuun account number must contain 8 to 20 digits.");
+      return;
+    }
 
     setSaving(true);
     setMessage("");
@@ -253,6 +296,16 @@ export default function PaymentSettings() {
             contractGeneration: {
               fee: contractGenerationFee,
             },
+            marketplaceKuun: {
+              ...(form.marketplaceKuunAccountName.trim()
+                ? { accountName: form.marketplaceKuunAccountName.trim() }
+                : {}),
+              ...(form.marketplaceKuunAccountNumber.trim()
+                ? { accountNumber: form.marketplaceKuunAccountNumber.trim() }
+                : {}),
+              feePercent: kuunFeePercent,
+              feeFixed: kuunFeeFixed,
+            },
           }),
         },
       );
@@ -263,6 +316,7 @@ export default function PaymentSettings() {
       const inspection = response.data.inspection;
       const aeroInspection = response.data.aeroInspection;
       const contractGeneration = response.data.contractGeneration;
+      const marketplaceKuun = response.data.marketplaceKuun;
 
       setForm((current) => ({
         ...current,
@@ -280,7 +334,13 @@ export default function PaymentSettings() {
         aeroInspectionFee: String(aeroInspection?.fee ?? aeroInspectionFee),
         aeroInspectionCurrency: aeroInspection?.currency || form.aeroInspectionCurrency,
         contractGenerationFee: String(contractGeneration?.fee ?? contractGenerationFee),
+        marketplaceKuunAccountName: marketplaceKuun?.accountName || form.marketplaceKuunAccountName,
+        marketplaceKuunAccountNumber: "",
+        marketplaceKuunFeePercent: String(marketplaceKuun?.feePercent ?? kuunFeePercent),
+        marketplaceKuunFeeFixed: String(marketplaceKuun?.feeFixed ?? kuunFeeFixed),
       }));
+      setMarketplaceKuunAccountConfigured(Boolean(marketplaceKuun?.accountNumberConfigured));
+      setMarketplaceKuunEnabled(Boolean(marketplaceKuun?.enabled));
 
       setSecretConfigured(flutterwave.secretKeyConfigured);
       setWebhookConfigured(flutterwave.webhookSecretConfigured);
@@ -434,6 +494,40 @@ export default function PaymentSettings() {
               />
             </label>
           </div>
+        </div>
+
+
+        <div className="border-t border-gray-100 pt-7">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-black uppercase tracking-wider text-gray-900">Marketplace Kuun transfers</h3>
+              <p className="mt-1 text-sm text-gray-500">Configure Aviritech's separate receiving account and platform charge for manual Kuun checkout. Merchant receiving accounts are managed by each merchant.</p>
+            </div>
+            <Link href="/dashboard/admin/marketplace-payments" className="text-xs font-bold text-[#1A3C6E] underline">Review platform transfers</Link>
+            <span className={`rounded-full px-3 py-1 text-xs font-bold ${marketplaceKuunEnabled ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-800"}`}>
+              {marketplaceKuunEnabled ? "Kuun checkout enabled" : "Kuun checkout disabled"}
+            </span>
+          </div>
+          <div className="mt-4 grid gap-5 md:grid-cols-2">
+            <label className="block">
+              <span className="mb-2 block text-sm font-semibold text-gray-700">Aviritech Kuun account name</span>
+              <input value={form.marketplaceKuunAccountName} onChange={e=>update("marketplaceKuunAccountName",e.target.value)} maxLength={120} placeholder="Account name registered with Kuun" className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-yellow-500"/>
+            </label>
+            <label className="block">
+              <span className="mb-2 block text-sm font-semibold text-gray-700">Aviritech Kuun account number {marketplaceKuunAccountConfigured && <span className="ml-2 text-xs font-bold text-green-600">Configured</span>}</span>
+              <input value={form.marketplaceKuunAccountNumber} onChange={e=>update("marketplaceKuunAccountNumber",e.target.value.replace(/[^0-9]/g,""))} inputMode="numeric" autoComplete="off" maxLength={20} placeholder={marketplaceKuunAccountConfigured ? "Leave blank to keep the saved account number" : "8–20 digits"} className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-yellow-500"/>
+              <span className="mt-1 block text-xs text-gray-500">Stored encrypted. Leave blank to retain the current number.</span>
+            </label>
+            <label className="block">
+              <span className="mb-2 block text-sm font-semibold text-gray-700">Platform fee percentage</span>
+              <input type="number" min="0" max="100" step="0.01" value={form.marketplaceKuunFeePercent} onChange={e=>update("marketplaceKuunFeePercent",e.target.value)} className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-yellow-500"/>
+            </label>
+            <label className="block">
+              <span className="mb-2 block text-sm font-semibold text-gray-700">Fixed platform fee (₦)</span>
+              <input type="number" min="0" max="5000000" step="0.01" value={form.marketplaceKuunFeeFixed} onChange={e=>update("marketplaceKuunFeeFixed",e.target.value)} className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-yellow-500"/>
+            </label>
+          </div>
+          <p className="mt-3 rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-900">Checkout remains disabled until the Aviritech account name, encrypted account number and a non-zero platform fee are configured. Flutterwave remains active independently.</p>
         </div>
 
         <div className="border-t border-gray-100 pt-7">
