@@ -276,7 +276,7 @@ function CallbackContent() {
             )}
             {receipt?.description && (
               <div>
-                <dt className="text-[11px] text-[#667085]">Property</dt>
+                <dt className="text-[11px] text-[#667085]">{searchParams.get("orderId") ? "Marketplace purchase" : "Property"}</dt>
                 <dd className="mt-0.5 font-medium">{receipt.description}</dd>
               </div>
             )}
