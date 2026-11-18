@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useAuth } from "@clerk/nextjs";
 import { useCallback, useEffect, useState } from "react";
 import { ArrowLeft, BadgeCheck, Building2, LoaderCircle, RefreshCw, Save } from "lucide-react";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, resolveMediaUrl } from "@/lib/api";
 
 type Api<T> = { success: boolean; data: T; message?: string };
 type Vendor = {
@@ -14,6 +14,21 @@ type Vendor = {
   status: "PENDING" | "VERIFIED" | "REJECTED" | "SUSPENDED";
   kuunAccountName: string | null;
   kuunAccountNumber: string | null;
+};
+type MerchantPayment = {
+  id: string;
+  reference: string;
+  amount: string | number;
+  currency: string;
+  status: "AWAITING_PROOF" | "PROOF_SUBMITTED" | "VERIFIED" | "REJECTED";
+  accountName: string;
+  accountNumber: string;
+  proofOriginalName: string | null;
+  proofMimeType: string | null;
+  proofSubmittedAt: string | null;
+  rejectionReason: string | null;
+  order: { id: string; orderNumber: string; status: string; createdAt: string };
+  buyer: { id: string; firstName: string | null; lastName: string | null; email: string; phoneNumber: string | null };
 };
 
 const field = "mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-900 outline-none focus:border-[#1A3C6E] focus:ring-2 focus:ring-[#1A3C6E]/10";
@@ -28,6 +43,10 @@ export default function VendorDashboard() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [payments, setPayments] = useState<MerchantPayment[]>([]);
+  const [reviewingPayment, setReviewingPayment] = useState("");
+  const [evidenceUrl, setEvidenceUrl] = useState("");
+  const [evidenceName, setEvidenceName] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -37,6 +56,12 @@ export default function VendorDashboard() {
       setVendor(result.data);
       setAccountName(result.data.kuunAccountName || "");
       setAccountNumber(result.data.kuunAccountNumber || "");
+      if (result.data.status === "VERIFIED") {
+        const paymentResult = await apiFetch<Api<MerchantPayment[]>>("/api/v1/marketplace/vendors/me/payments", getToken);
+        setPayments(paymentResult.data || []);
+      } else {
+        setPayments([]);
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to load your merchant profile.");
     } finally {
@@ -72,6 +97,51 @@ export default function VendorDashboard() {
     } finally {
       setSaving(false);
     }
+  }
+
+
+  async function reviewPayment(payment: MerchantPayment, status: "VERIFIED" | "REJECTED") {
+    const reason = status === "REJECTED" ? window.prompt("Why are you rejecting this transfer proof?")?.trim() : "";
+    if (status === "REJECTED" && !reason) return;
+    setReviewingPayment(payment.id);
+    setError("");
+    setNotice("");
+    try {
+      await apiFetch<Api<MerchantPayment>>(
+        `/api/v1/marketplace/vendors/me/payments/${encodeURIComponent(payment.id)}/review`,
+        getToken,
+        { method: "POST", body: JSON.stringify({ status, ...(reason ? { reason } : {}) }) },
+      );
+      setNotice(status === "VERIFIED" ? "Merchant transfer verified. The order will release after all required payments are verified." : "Transfer proof rejected. The customer can submit new proof.");
+      await load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to review this transfer.");
+    } finally {
+      setReviewingPayment("");
+    }
+  }
+
+  async function viewEvidence(payment: MerchantPayment) {
+    setError("");
+    try {
+      const token = await getToken();
+      const response = await fetch(resolveMediaUrl(`/api/v1/marketplace/vendors/me/payments/${encodeURIComponent(payment.id)}/evidence`), {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!response.ok) throw new Error("Unable to open payment evidence.");
+      const blob = await response.blob();
+      if (evidenceUrl) URL.revokeObjectURL(evidenceUrl);
+      setEvidenceUrl(URL.createObjectURL(blob));
+      setEvidenceName(payment.proofOriginalName || payment.reference);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to open payment evidence.");
+    }
+  }
+
+  function closeEvidence() {
+    if (evidenceUrl) URL.revokeObjectURL(evidenceUrl);
+    setEvidenceUrl("");
+    setEvidenceName("");
   }
 
   return (
@@ -144,11 +214,67 @@ export default function VendorDashboard() {
           </section>
         )}
 
+
+        {vendor?.status === "VERIFIED" && (
+          <section className="mt-7 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[.18em] text-[#1A3C6E]">Merchant settlement queue</p>
+                <h2 className="mt-1 text-xl font-black">Customer transfer proofs</h2>
+                <p className="mt-1 text-sm text-slate-500">Review only payments addressed to your merchant Kuun account. A proof upload is not confirmation of receipt.</p>
+              </div>
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">{payments.filter(p=>p.status==="PROOF_SUBMITTED").length} awaiting review</span>
+            </div>
+            {payments.length === 0 ? (
+              <p className="mt-5 rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">No merchant transfer obligations yet.</p>
+            ) : (
+              <div className="mt-5 space-y-3">
+                {payments.map(payment => (
+                  <article key={payment.id} className="rounded-xl border border-slate-200 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="font-black">{payment.order.orderNumber}</p>
+                        <p className="mt-1 text-xs text-slate-500">{payment.buyer.firstName || ""} {payment.buyer.lastName || ""} · {payment.buyer.email}</p>
+                        <p className="mt-1 text-xs text-slate-500">Reference: {payment.reference}</p>
+                      </div>
+                      <span className={`rounded-full px-3 py-1 text-xs font-bold ${payment.status==="VERIFIED"?"bg-emerald-100 text-emerald-800":payment.status==="PROOF_SUBMITTED"?"bg-amber-100 text-amber-800":payment.status==="REJECTED"?"bg-red-100 text-red-800":"bg-slate-100 text-slate-700"}`}>{payment.status.replaceAll("_"," ")}</span>
+                    </div>
+                    <div className="mt-3 grid gap-2 rounded-lg bg-slate-50 p-3 text-sm sm:grid-cols-2">
+                      <p><span className="text-slate-500">Amount:</span> <strong>{new Intl.NumberFormat("en-NG",{style:"currency",currency:payment.currency,maximumFractionDigits:2}).format(Number(payment.amount))}</strong></p>
+                      <p><span className="text-slate-500">Transfer destination:</span> <strong>{payment.accountName} · {payment.accountNumber}</strong></p>
+                      {payment.proofSubmittedAt && <p className="text-xs text-slate-500">Proof submitted: {new Date(payment.proofSubmittedAt).toLocaleString("en-NG")}</p>}
+                      {payment.rejectionReason && <p className="text-xs text-red-700">Previous rejection: {payment.rejectionReason}</p>}
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {payment.proofOriginalName && <button type="button" onClick={()=>void viewEvidence(payment)} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700">View transfer proof</button>}
+                      {payment.status==="PROOF_SUBMITTED" && <>
+                        <button type="button" disabled={reviewingPayment===payment.id} onClick={()=>void reviewPayment(payment,"VERIFIED")} className="rounded-lg bg-[#1A3C6E] px-3 py-2 text-xs font-bold text-white disabled:opacity-50">{reviewingPayment===payment.id?"Saving…":"Confirm received"}</button>
+                        <button type="button" disabled={reviewingPayment===payment.id} onClick={()=>void reviewPayment(payment,"REJECTED")} className="rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-700 disabled:opacity-50">Reject proof</button>
+                      </>}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
         <section className="mt-6 max-w-3xl rounded-2xl border border-slate-200 bg-white p-5">
           <h2 className="font-black">Flutterwave remains active</h2>
           <p className="mt-1 text-sm leading-6 text-slate-600">Adding a Kuun receiving account does not switch off or replace the existing Flutterwave checkout. Customers can continue using the current Flutterwave payment flow.</p>
         </section>
       </div>
+      {evidenceUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3" role="dialog" aria-modal="true" aria-label="Payment evidence">
+          <div className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+              <p className="truncate pr-4 text-sm font-bold">{evidenceName}</p>
+              <button type="button" onClick={closeEvidence} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-bold">Close</button>
+            </div>
+            <iframe title="Payment evidence" src={evidenceUrl} className="min-h-[70vh] w-full" />
+          </div>
+        </div>
+      )}
     </main>
   );
 }
