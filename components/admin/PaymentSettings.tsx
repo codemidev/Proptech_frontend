@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { apiFetch } from "@/lib/api";
@@ -502,6 +503,7 @@ export default function PaymentSettings() {
               <h3 className="text-sm font-black uppercase tracking-wider text-gray-900">Marketplace Kuun transfers</h3>
               <p className="mt-1 text-sm text-gray-500">Configure Aviritech's separate receiving account and platform charge for manual Kuun checkout. Merchant receiving accounts are managed by each merchant.</p>
             </div>
+            <Link href="/dashboard/admin/marketplace-payments" className="text-xs font-bold text-[#1A3C6E] underline">Review platform transfers</Link>
             <span className={`rounded-full px-3 py-1 text-xs font-bold ${marketplaceKuunEnabled ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-800"}`}>
               {marketplaceKuunEnabled ? "Kuun checkout enabled" : "Kuun checkout disabled"}
             </span>
