@@ -93,6 +93,21 @@ type MarketplaceOrdersResponse = {
   data: MarketplaceOrderReceipt[];
 };
 
+type MarketplaceServiceBookingReceipt = {
+  id: string;
+  bookingNumber: string;
+  status: string;
+  serviceTitleSnapshot: string;
+  quoteAmount: string | number | null;
+  currency: string;
+  scheduledAt: string | null;
+  vendor: { businessName: string };
+};
+type MarketplaceServiceBookingsResponse = {
+  success: boolean;
+  data: MarketplaceServiceBookingReceipt[];
+};
+
 function formatCurrency(amount: string, currency: string) {
   const value = Number(amount);
   const symbol = currency === "NGN" ? "₦" : currency;
@@ -141,6 +156,7 @@ function CallbackContent() {
   const [property, setProperty] = useState<PropertyResponse["data"] | null>(null);
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [marketplaceOrder, setMarketplaceOrder] = useState<MarketplaceOrderReceipt | null>(null);
+  const [serviceBooking, setServiceBooking] = useState<MarketplaceServiceBookingReceipt | null>(null);
 
   const txRef = searchParams.get("tx_ref");
 
@@ -176,6 +192,19 @@ function CallbackContent() {
         if (res.data.status === "SUCCESS") {
           const propertyId = searchParams.get("propertyId");
           const orderId = searchParams.get("orderId");
+          const bookingId = searchParams.get("bookingId");
+
+          if (bookingId) {
+            try {
+              const bookings = await apiFetch<MarketplaceServiceBookingsResponse>(
+                "/api/v1/marketplace/bookings/me",
+                getToken,
+              );
+              setServiceBooking(bookings.data.find((booking) => booking.id === bookingId) ?? null);
+            } catch {
+              setServiceBooking(null);
+            }
+          }
 
           if (orderId) {
             try {
@@ -286,6 +315,12 @@ function CallbackContent() {
                 <dd className="mt-0.5 font-medium">{marketplaceOrder.orderNumber}</dd>
               </div>
             )}
+            {serviceBooking && (
+              <div>
+                <dt className="text-[11px] text-[#667085]">Service booking</dt>
+                <dd className="mt-0.5 font-medium">{serviceBooking.bookingNumber}</dd>
+              </div>
+            )}
             {!receipt && (
               <p className="text-xs text-[#667085]">
                 {searchParams.get("orderId")
@@ -294,6 +329,18 @@ function CallbackContent() {
               </p>
             )}
           </dl>
+
+          {serviceBooking && (
+            <div className={`${tenantCard} mt-4 w-full p-4 text-left`}>
+              <p className="text-[11px] text-[#667085]">Service booking payment</p>
+              <h2 className="mt-1 text-base font-semibold text-[#111827]">{serviceBooking.bookingNumber}</h2>
+              <p className="mt-2 text-sm font-medium text-[#111827]">{serviceBooking.serviceTitleSnapshot}</p>
+              <p className="mt-1 text-xs text-[#667085]">Provider: {serviceBooking.vendor.businessName}</p>
+              {serviceBooking.quoteAmount != null && <p className="mt-3 text-sm font-bold">{formatCurrency(String(serviceBooking.quoteAmount), serviceBooking.currency)}</p>}
+              <p className="mt-2 text-xs text-[#667085]">Booking status: {serviceBooking.status.replaceAll("_"," ")}</p>
+              {serviceBooking.scheduledAt && <p className="mt-1 text-xs text-[#667085]">Scheduled: {formatDateTime(serviceBooking.scheduledAt)}</p>}
+            </div>
+          )}
 
           {marketplaceOrder && (
             <div className={`${tenantCard} mt-4 w-full p-4 text-left`}>
@@ -411,6 +458,11 @@ function CallbackContent() {
               </Link>
             )}
             {marketplaceOrder && (
+              <Link href="/marketplace" className={tenantBtn("primary")}>
+                Return to Marketplace
+              </Link>
+            )}
+            {serviceBooking && (
               <Link href="/marketplace" className={tenantBtn("primary")}>
                 Return to Marketplace
               </Link>
