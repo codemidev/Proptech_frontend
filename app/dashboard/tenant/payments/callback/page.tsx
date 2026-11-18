@@ -108,6 +108,18 @@ type MarketplaceServiceBookingsResponse = {
   data: MarketplaceServiceBookingReceipt[];
 };
 
+type MarketplaceDeliveryQuoteReceipt = {
+  id:string; quoteNumber:string; status:string; quoteAmount:string|number|null;
+  trackingReference:string|null; vendorNotes:string|null;
+  order:{id:string;orderNumber:string};
+  vendor:{businessName:string};
+  serviceOffering:{title:string};
+};
+type MarketplaceDeliveryQuotesResponse = {
+  success:boolean;
+  data:MarketplaceDeliveryQuoteReceipt[];
+};
+
 function formatCurrency(amount: string, currency: string) {
   const value = Number(amount);
   const symbol = currency === "NGN" ? "₦" : currency;
@@ -157,6 +169,7 @@ function CallbackContent() {
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [marketplaceOrder, setMarketplaceOrder] = useState<MarketplaceOrderReceipt | null>(null);
   const [serviceBooking, setServiceBooking] = useState<MarketplaceServiceBookingReceipt | null>(null);
+  const [deliveryQuote, setDeliveryQuote] = useState<MarketplaceDeliveryQuoteReceipt | null>(null);
 
   const txRef = searchParams.get("tx_ref");
 
@@ -193,6 +206,19 @@ function CallbackContent() {
           const propertyId = searchParams.get("propertyId");
           const orderId = searchParams.get("orderId");
           const bookingId = searchParams.get("bookingId");
+          const deliveryQuoteId = searchParams.get("deliveryQuoteId");
+
+          if (deliveryQuoteId) {
+            try {
+              const quotes = await apiFetch<MarketplaceDeliveryQuotesResponse>(
+                "/api/v1/marketplace/delivery-requests/me",
+                getToken,
+              );
+              setDeliveryQuote(quotes.data.find((quote) => quote.id === deliveryQuoteId) ?? null);
+            } catch {
+              setDeliveryQuote(null);
+            }
+          }
 
           if (bookingId) {
             try {
@@ -321,6 +347,12 @@ function CallbackContent() {
                 <dd className="mt-0.5 font-medium">{serviceBooking.bookingNumber}</dd>
               </div>
             )}
+            {deliveryQuote && (
+              <div>
+                <dt className="text-[11px] text-[#667085]">Delivery quote</dt>
+                <dd className="mt-0.5 font-medium">{deliveryQuote.quoteNumber}</dd>
+              </div>
+            )}
             {!receipt && (
               <p className="text-xs text-[#667085]">
                 {searchParams.get("orderId")
@@ -329,6 +361,18 @@ function CallbackContent() {
               </p>
             )}
           </dl>
+
+          {deliveryQuote && (
+            <div className={`${tenantCard} mt-4 w-full p-4 text-left`}>
+              <p className="text-[11px] text-[#667085]">Delivery fee payment</p>
+              <h2 className="mt-1 text-base font-semibold text-[#111827]">{deliveryQuote.quoteNumber}</h2>
+              <p className="mt-2 text-sm font-medium text-[#111827]">Order {deliveryQuote.order.orderNumber}</p>
+              <p className="mt-1 text-xs text-[#667085]">{deliveryQuote.vendor.businessName} · {deliveryQuote.serviceOffering.title}</p>
+              {deliveryQuote.quoteAmount!=null&&<p className="mt-3 text-sm font-bold">{formatCurrency(String(deliveryQuote.quoteAmount),"NGN")}</p>}
+              <p className="mt-2 text-xs text-[#667085]">Delivery status: {deliveryQuote.status.replaceAll("_"," ")}</p>
+              {deliveryQuote.trackingReference&&<p className="mt-1 text-xs text-[#667085]">Tracking reference: {deliveryQuote.trackingReference}</p>}
+            </div>
+          )}
 
           {serviceBooking && (
             <div className={`${tenantCard} mt-4 w-full p-4 text-left`}>
@@ -463,6 +507,11 @@ function CallbackContent() {
               </Link>
             )}
             {serviceBooking && (
+              <Link href="/marketplace" className={tenantBtn("primary")}>
+                Return to Marketplace
+              </Link>
+            )}
+            {deliveryQuote && (
               <Link href="/marketplace" className={tenantBtn("primary")}>
                 Return to Marketplace
               </Link>
