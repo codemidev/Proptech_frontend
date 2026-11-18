@@ -269,52 +269,6 @@ export default function ApplicationsPage() {
   }
 
 
-  async function acceptContract(item: ApplicationInspection) {
-    if (!item.tenancyId) {
-      setContractMessages((current) => ({
-        ...current,
-        [item.id]: "The owner has not prepared a tenancy contract for this application yet.",
-      }));
-      return;
-    }
-
-    setContractBusy(item.id);
-    setContractMessages((current) => ({ ...current, [item.id]: "" }));
-    try {
-      const result = await apiFetch<{
-        success: boolean;
-        message?: string;
-        data?: { transaction?: { status?: string }; alreadyAccepted?: boolean };
-      }>(
-        `/api/v1/leases/${encodeURIComponent(item.tenancyId)}/accept-contract`,
-        getToken,
-        { method: "POST" },
-      );
-      const actualStatus = result.data?.transaction?.status ?? "OWNER_APPROVED";
-
-      setRecords((current) => current.map((record) =>
-        record.id === item.id
-          ? { ...record, applicationStatus: actualStatus }
-          : record,
-      ));
-      setContractMessages((current) => ({
-        ...current,
-        [item.id]: result.message || (
-          actualStatus === "TENANCY_ACTIVE"
-            ? "Contract accepted and rent confirmed. Your tenancy is active. Key handover is tracked separately."
-            : "Contract acceptance recorded. Tenancy activation will complete once the owner confirms rent payment."
-        ),
-      }));
-    } catch (error) {
-      setContractMessages((current) => ({
-        ...current,
-        [item.id]: error instanceof Error ? error.message : "Could not accept the contract.",
-      }));
-    } finally {
-      setContractBusy(null);
-    }
-  }
-
   async function submitEvidence(event: FormEvent<HTMLFormElement>, item: ApplicationInspection) {
     const formElement = event.currentTarget;
     event.preventDefault();
@@ -720,24 +674,6 @@ export default function ApplicationsPage() {
                             </p>
                           )}
 
-                          <button
-                            type="button"
-                            disabled={
-                              contractBusy === item.id ||
-                              !item.tenancy ||
-                              item.tenancy.id !== item.tenancyId ||
-                              !hasConfirmedRent(item)
-                            }
-                            onClick={() => void acceptContract(item)}
-                            className="min-h-11 rounded-xl bg-[#FACC15] px-4 py-2 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            {contractBusy === item.id ? "Processing..." : "Accept contract"}
-                          </button>
-                          {contractMessages[item.id] && (
-                            <p role="status" className="text-sm text-black/70">
-                              {contractMessages[item.id]}
-                            </p>
-                          )}
                         </section>
                       )}
 
@@ -848,7 +784,8 @@ export default function ApplicationsPage() {
                         </section>
                       )}
 
-                      {["ACTIVATION_PENDING", "ACTIVATED", "TENANCY_ACTIVE"].includes(item.applicationStatus ?? "") && (
+                      {["ACTIVATION_PENDING", "ACTIVATED", "TENANCY_ACTIVE"].includes(item.applicationStatus ?? "") &&
+                        !hasConfirmedRent(item) && (
                         <section className="space-y-3 rounded-xl border border-[#FACC15]/60 bg-[#FACC15]/10 p-4">
                           <div>
                             <h3 className="text-sm font-semibold text-black">Pay rent directly</h3>
