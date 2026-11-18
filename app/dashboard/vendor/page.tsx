@@ -16,6 +16,12 @@ type VendorBooking = {
   requestedScheduleAt:string|null; scheduledAt:string|null; quoteAmount:string|number|null; vendorNotes:string|null;
   customer:{firstName:string|null;lastName:string|null;email:string;phoneNumber:string|null};
 };
+type DeliveryRequest = {
+  id:string; quoteNumber:string; status:string; quoteAmount:string|number|null; trackingReference:string|null; vendorNotes:string|null;
+  order:{id:string;orderNumber:string;deliveryAddress:string;deliveryPhone:string|null;total:string|number;currency:string};
+  customer:{firstName:string|null;lastName:string|null;email:string;phoneNumber:string|null};
+  serviceOffering:{id:string;title:string};
+};
 const field = "mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-[#1A3C6E]";
 const primary = "inline-flex items-center justify-center gap-2 rounded-xl bg-[#1A3C6E] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50";
 const money = (n: string | number | null) => n == null ? "Quote required" : new Intl.NumberFormat("en-NG",{style:"currency",currency:"NGN",maximumFractionDigits:2}).format(Number(n));
@@ -25,6 +31,7 @@ export default function VendorDashboard() {
   const [vendor,setVendor] = useState<Vendor|null>(null), [categories,setCategories] = useState<Category[]>([]);
   const [products,setProducts] = useState<Product[]>([]), [services,setServices] = useState<Service[]>([]);
   const [bookings,setBookings] = useState<VendorBooking[]>([]);
+  const [deliveryRequests,setDeliveryRequests] = useState<DeliveryRequest[]>([]);
   const [loading,setLoading] = useState(true), [saving,setSaving] = useState(false), [error,setError] = useState(""), [notice,setNotice] = useState("");
   const [businessName,setBusinessName] = useState(""), [type,setType] = useState("MERCHANT"), [email,setEmail] = useState(""), [phone,setPhone] = useState(""), [address,setAddress] = useState("");
   const [productOpen,setProductOpen] = useState(false), [serviceOpen,setServiceOpen] = useState(false);
@@ -40,13 +47,14 @@ export default function VendorDashboard() {
       ]);
       setVendor(p.data); setCategories(c.data || []);
       if(p.data.status === "VERIFIED") {
-        const [productsResult,servicesResult,bookingsResult] = await Promise.all([
+        const [productsResult,servicesResult,bookingsResult,deliveryResult] = await Promise.all([
           apiFetch<Api<Product[]>>("/api/v1/marketplace/vendors/me/products",getToken),
           apiFetch<Api<Service[]>>("/api/v1/marketplace/vendors/me/services",getToken),
           apiFetch<Api<VendorBooking[]>>("/api/v1/marketplace/vendors/me/bookings",getToken),
+          apiFetch<Api<DeliveryRequest[]>>("/api/v1/marketplace/vendors/me/delivery-requests",getToken),
         ]);
-        setProducts(productsResult.data || []); setServices(servicesResult.data || []); setBookings(bookingsResult.data || []);
-      } else { setProducts([]); setServices([]); setBookings([]); }
+        setProducts(productsResult.data || []); setServices(servicesResult.data || []); setBookings(bookingsResult.data || []); setDeliveryRequests(deliveryResult.data || []);
+      } else { setProducts([]); setServices([]); setBookings([]); setDeliveryRequests([]); }
     } catch(e) {
       const message=e instanceof Error?e.message:"Unable to load vendor workspace.";
       if(message.toLowerCase().includes("vendor profile not found")) {
@@ -82,6 +90,24 @@ export default function VendorDashboard() {
       setServiceOpen(false);setServiceTitle("");setServiceCategory("");setServicePrice("");setDuration("");setAreas("");setServiceDescription("");setNotice("Service saved as a draft.");await load();
     } catch(x) {setError(x instanceof Error?x.message:"Service could not be saved.");} finally {setSaving(false);}
   }
+  async function quoteDelivery(event:React.FormEvent<HTMLFormElement>,quoteId:string) {
+    event.preventDefault();const data=new FormData(event.currentTarget);setSaving(true);setError("");setNotice("");
+    try {
+      await apiFetch<Api<DeliveryRequest>>(`/api/v1/marketplace/vendors/me/delivery-requests/${quoteId}/quote`,getToken,{method:"POST",body:JSON.stringify({quoteAmount:Number(data.get("quoteAmount")),vendorNotes:String(data.get("vendorNotes")||"")||undefined})});
+      setNotice("Delivery quote sent to the customer.");await load();
+    } catch(e){setError(e instanceof Error?e.message:"Could not send delivery quote.");}finally{setSaving(false);}
+  }
+  async function declineDelivery(quoteId:string) {
+    if(!window.confirm("Decline this delivery request?"))return;setSaving(true);setError("");
+    try{await apiFetch<Api<unknown>>(`/api/v1/marketplace/vendors/me/delivery-requests/${quoteId}/decline`,getToken,{method:"POST",body:JSON.stringify({})});setNotice("Delivery request declined.");await load();}
+    catch(e){setError(e instanceof Error?e.message:"Could not decline delivery request.");}finally{setSaving(false);}
+  }
+  async function advanceDelivery(quoteId:string,status:"IN_TRANSIT"|"DELIVERED",trackingReference?:string) {
+    setSaving(true);setError("");
+    try{await apiFetch<Api<DeliveryRequest>>(`/api/v1/marketplace/vendors/me/delivery-requests/${quoteId}/status`,getToken,{method:"PATCH",body:JSON.stringify({status,trackingReference})});setNotice(status==="IN_TRANSIT"?"Delivery marked in transit.":"Delivery marked as delivered.");await load();}
+    catch(e){setError(e instanceof Error?e.message:"Could not update delivery status.");}finally{setSaving(false);}
+  }
+
   async function quoteBooking(event:React.FormEvent<HTMLFormElement>,bookingId:string) {
     event.preventDefault();const data=new FormData(event.currentTarget);
     const amount=Number(data.get("quoteAmount"));const scheduled=String(data.get("scheduledAt")||"");
@@ -136,6 +162,15 @@ export default function VendorDashboard() {
           <div className="mt-6 flex flex-wrap gap-3"><button onClick={()=>{setProductOpen(v=>!v);setServiceOpen(false)}} className={primary}><Plus size={16}/>Add product</button><button onClick={()=>{setServiceOpen(v=>!v);setProductOpen(false)}} className="flex items-center gap-2 rounded-xl border bg-white px-4 py-2.5 text-sm font-bold"><Plus size={16}/>Add service</button></div>
           {productOpen&&<form onSubmit={createProduct} className="mt-4 grid gap-4 rounded-2xl border bg-white p-5 sm:grid-cols-2"><h3 className="text-lg font-black sm:col-span-2">New product draft</h3><label className="text-sm font-semibold">Name<input required minLength={2} value={productTitle} onChange={e=>setProductTitle(e.target.value)} className={field}/></label><label className="text-sm font-semibold">Category<select required value={productCategory} onChange={e=>setProductCategory(e.target.value)} className={field}><option value="">Select category</option>{productCategories.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label><label className="text-sm font-semibold">Price (NGN)<input required type="number" min="0.01" step="0.01" value={productPrice} onChange={e=>setProductPrice(e.target.value)} className={field}/></label><label className="text-sm font-semibold">Stock<input required type="number" min="0" step="1" value={stock} onChange={e=>setStock(e.target.value)} className={field}/></label><label className="text-sm font-semibold">SKU<input value={sku} onChange={e=>setSku(e.target.value)} className={field}/></label><label className="text-sm font-semibold sm:col-span-2">Description<textarea rows={3} value={productDescription} onChange={e=>setProductDescription(e.target.value)} className={field}/></label><label className="text-sm font-semibold sm:col-span-2">Image URLs (one per line)<textarea rows={2} value={images} onChange={e=>setImages(e.target.value)} className={field}/></label><div className="flex gap-2 sm:col-span-2"><button disabled={saving} className={primary}>Save draft</button><button type="button" onClick={()=>setProductOpen(false)} className="rounded-xl border px-4 text-sm">Cancel</button></div></form>}
           {serviceOpen&&<form onSubmit={createService} className="mt-4 grid gap-4 rounded-2xl border bg-white p-5 sm:grid-cols-2"><h3 className="text-lg font-black sm:col-span-2">New service draft</h3><label className="text-sm font-semibold">Service name<input required minLength={2} value={serviceTitle} onChange={e=>setServiceTitle(e.target.value)} className={field}/></label><label className="text-sm font-semibold">Category<select required value={serviceCategory} onChange={e=>setServiceCategory(e.target.value)} className={field}><option value="">Select category</option>{serviceCategories.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label><label className="text-sm font-semibold">Base price (NGN, optional)<input type="number" min="0.01" step="0.01" value={servicePrice} onChange={e=>setServicePrice(e.target.value)} className={field}/></label><label className="text-sm font-semibold">Duration in minutes<input type="number" min="15" max="10080" value={duration} onChange={e=>setDuration(e.target.value)} className={field}/></label><label className="text-sm font-semibold sm:col-span-2">Service areas (comma-separated)<input value={areas} onChange={e=>setAreas(e.target.value)} className={field} placeholder="Lekki, Ikeja, Victoria Island"/></label><label className="text-sm font-semibold sm:col-span-2">Description<textarea rows={3} value={serviceDescription} onChange={e=>setServiceDescription(e.target.value)} className={field}/></label><div className="flex gap-2 sm:col-span-2"><button disabled={saving} className={primary}>Save draft</button><button type="button" onClick={()=>setServiceOpen(false)} className="rounded-xl border px-4 text-sm">Cancel</button></div></form>}
+          <section className="mt-8"><div className="flex items-center justify-between gap-3"><h2 className="text-xl font-black">Delivery requests</h2><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold">{deliveryRequests.length} total</span></div>
+            {deliveryRequests.length?<div className="mt-4 space-y-3">{deliveryRequests.map(d=><article key={d.id} className="rounded-2xl border border-slate-200 bg-white p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-black text-[#1A3C6E]">{d.quoteNumber} · Order {d.order.orderNumber}</p><h3 className="mt-1 font-bold">{d.serviceOffering.title}</h3><p className="mt-1 text-sm text-slate-500">Customer: {[d.customer.firstName,d.customer.lastName].filter(Boolean).join(" ")||d.customer.email} · {d.customer.phoneNumber||"No phone"}</p><p className="mt-1 text-xs text-slate-500">Deliver to: {d.order.deliveryAddress}</p></div><span className="h-fit rounded-full bg-slate-100 px-3 py-1 text-xs font-bold">{d.status.replaceAll("_"," ")}</span></div>
+              {d.status==="REQUESTED"&&<form onSubmit={e=>void quoteDelivery(e,d.id)} className="mt-4 grid gap-3 rounded-xl bg-slate-50 p-4 sm:grid-cols-2"><label className="text-xs font-bold">Delivery fee (NGN)<input name="quoteAmount" required type="number" min="0.01" step="0.01" className={field}/></label><label className="text-xs font-bold sm:col-span-2">Delivery notes<textarea name="vendorNotes" rows={2} className={field} placeholder="Estimated transit time, pickup instructions, conditions"/></label><div className="flex gap-2 sm:col-span-2"><button disabled={saving} className={primary}>Send delivery quote</button><button type="button" disabled={saving} onClick={()=>void declineDelivery(d.id)} className="rounded-xl border border-red-200 px-4 py-2 text-sm font-bold text-red-700">Decline</button></div></form>}
+              {d.quoteAmount!=null&&<p className="mt-3 text-sm font-bold">Quote: {money(d.quoteAmount)}</p>}
+              {d.vendorNotes&&<p className="mt-1 text-xs text-slate-500">{d.vendorNotes}</p>}
+              {d.status==="PAID"&&<form onSubmit={e=>{e.preventDefault();const ref=String(new FormData(e.currentTarget).get("trackingReference")||"");void advanceDelivery(d.id,"IN_TRANSIT",ref||undefined)}} className="mt-3 flex flex-wrap gap-2"><input name="trackingReference" className="min-w-0 flex-1 rounded-xl border px-3 py-2 text-sm" placeholder="Tracking reference (optional)"/><button disabled={saving} className={primary}>Dispatch / in transit</button></form>}
+              {d.status==="IN_TRANSIT"&&<div className="mt-3"><p className="text-xs font-semibold text-[#1A3C6E]">Tracking: {d.trackingReference||"Provider has not supplied a reference"}</p><button disabled={saving} onClick={()=>void advanceDelivery(d.id,"DELIVERED")} className={`${primary} mt-2`}>Mark delivered</button></div>}
+            </article>)}</div>:<p className="mt-3 rounded-xl border border-dashed p-6 text-sm text-slate-500">No delivery requests yet. Customer requests for your active delivery services will appear here.</p>}
+          </section>
           <section className="mt-8"><div className="flex items-center justify-between gap-3"><h2 className="text-xl font-black">Service requests</h2><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold">{bookings.length} total</span></div>
             {bookings.length?<div className="mt-4 space-y-3">{bookings.map(b=><article key={b.id} className="rounded-2xl border border-slate-200 bg-white p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-black text-[#1A3C6E]">{b.bookingNumber}</p><h3 className="mt-1 font-bold">{b.serviceTitleSnapshot}</h3><p className="mt-1 text-sm text-slate-500">Customer: {[b.customer.firstName,b.customer.lastName].filter(Boolean).join(" ")||b.customer.email} · {b.customer.phoneNumber||"No phone"}</p><p className="mt-1 text-xs text-slate-500">Address: {b.serviceAddress}</p>{b.requestedScheduleAt&&<p className="mt-1 text-xs text-slate-500">Preferred: {new Date(b.requestedScheduleAt).toLocaleString("en-NG")}</p>}</div><span className="h-fit rounded-full bg-slate-100 px-3 py-1 text-xs font-bold">{b.status.replaceAll("_"," ")}</span></div>
               {b.status==="REQUESTED"&&<form onSubmit={e=>void quoteBooking(e,b.id)} className="mt-4 grid gap-3 rounded-xl bg-slate-50 p-4 sm:grid-cols-3"><label className="text-xs font-bold">Quote (NGN)<input name="quoteAmount" required type="number" min="0.01" step="0.01" className={field}/></label><label className="text-xs font-bold">Proposed schedule<input name="scheduledAt" type="datetime-local" className={field}/></label><label className="text-xs font-bold sm:col-span-3">Message / quote details<textarea name="vendorNotes" rows={2} className={field} placeholder="Scope, inclusions and any conditions"/></label><div className="flex gap-2 sm:col-span-3"><button disabled={saving} className={primary}>Send quote</button><button type="button" disabled={saving} onClick={()=>void declineBooking(b.id)} className="rounded-xl border border-red-200 px-4 py-2 text-sm font-bold text-red-700">Decline</button></div></form>}
