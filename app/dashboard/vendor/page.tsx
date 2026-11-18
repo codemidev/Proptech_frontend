@@ -133,7 +133,7 @@ export default function VendorDashboard() {
     const quantityAvailable = Number(productStock);
     if (!Number.isFinite(price) || price <= 0) { setError("Enter a valid product price."); return; }
     if (!Number.isInteger(quantityAvailable) || quantityAvailable < 0) { setError("Enter a valid stock quantity."); return; }
-    const images = productImages.split(/\\r?\\n/).map(value => value.trim()).filter(Boolean).slice(0, 8);
+    const images = productImages.split(/\r?\n/).map(value => value.trim()).filter(Boolean).slice(0, 8);
     setSavingProduct(true); setError(""); setNotice("");
     try {
       await apiFetch<Api<Product>>("/api/v1/marketplace/vendors/me/products", getToken, {
