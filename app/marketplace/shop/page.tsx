@@ -21,6 +21,9 @@ type PaymentInstruction = {
   id: string; reference: string; type: "MERCHANT_PAYMENT" | "PLATFORM_CHARGE";
   vendorId: string | null; merchantName: string; amount: string; currency: string;
   accountName: string; accountNumber: string; status: string;
+  vendor?: { id: string; businessName: string } | null;
+  order?: { id: string; orderNumber: string; status: string };
+  proofSubmittedAt?: string | null; proofOriginalName?: string | null; rejectionReason?: string | null;
 };
 type CheckoutResult = {
   paymentMethod: "FLUTTERWAVE" | "KUUN"; orderId: string; orderNumber: string;
@@ -57,9 +60,19 @@ export default function MarketplaceShopPage() {
       setProducts(listing.data.products || []);
       setOptions(paymentOptions.data);
       if (isSignedIn) {
-        const cartResult = await apiFetch<Api<Cart>>("/api/v1/marketplace/cart", getToken);
+        const [cartResult, paymentResult] = await Promise.all([
+          apiFetch<Api<Cart>>("/api/v1/marketplace/cart", getToken),
+          apiFetch<Api<Obligation[]>>("/api/v1/marketplace/payments/me", getToken),
+        ]);
         setCart(cartResult.data);
-      } else setCart(null);
+        setInstructions((paymentResult.data || []).map(item => ({
+          ...item,
+          merchantName: item.vendor?.businessName || "Aviritech PropTech",
+        })));
+      } else {
+        setCart(null);
+        setInstructions([]);
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Marketplace products could not be loaded.");
     } finally { setLoading(false); }
@@ -177,14 +190,14 @@ export default function MarketplaceShopPage() {
           <div><p className="text-xs font-black uppercase tracking-[.18em] text-[#1A3C6E]">Manual transfer checkout</p><h2 className="mt-1 text-xl font-black">Transfer instructions</h2><p className="mt-1 text-sm text-slate-500">Make each transfer separately. Upload proof for each one; the recipient must verify receipt before the order is released.</p></div>
           <div className="mt-5 space-y-4">
             {instructions.map(item=><article key={item.id} className="rounded-xl border border-slate-200 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="font-black">{item.merchantName}</h3><span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800">{item.status.replaceAll("_"," ")}</span></div>
+              <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black">{item.merchantName}</h3>{item.order?.orderNumber && <p className="text-xs text-slate-500">{item.order.orderNumber}</p>}</div><span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800">{item.status.replaceAll("_"," ")}</span></div>
               <div className="mt-3 grid gap-2 rounded-lg bg-slate-50 p-3 text-sm sm:grid-cols-2">
                 <p><span className="text-slate-500">Amount:</span> <strong>{money(item.amount,item.currency)}</strong></p>
                 <p><span className="text-slate-500">Reference:</span> <strong>{item.reference}</strong></p>
                 <p><span className="text-slate-500">Account name:</span> <strong>{item.accountName}</strong></p>
                 <p><span className="text-slate-500">Account number:</span> <strong>{item.accountNumber}</strong></p>
               </div>
-              {item.status==="REJECTED" && <p className="mt-2 text-xs text-red-700">{item.rejectionReason}</p>}
+              {item.status==="REJECTED" && <p className="mt-2 text-xs text-red-700">{item.rejectionReason || "The recipient rejected the submitted proof. Upload a corrected receipt."}</p>}
               {item.status!=="VERIFIED" && item.status!=="PROOF_SUBMITTED" && <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-[#1A3C6E]/40 px-4 py-3 text-sm font-bold text-[#1A3C6E]"><Upload size={16}/>{busy===item.id?"Uploading proof…":"Upload transfer proof"}<input type="file" accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf" className="hidden" disabled={busy===item.id} onChange={event=>void uploadProof(item,event.target.files?.[0])}/></label>}
               {item.status==="PROOF_SUBMITTED" && <p className="mt-3 text-sm font-semibold text-amber-800">Proof submitted. Awaiting recipient verification.</p>}
               {item.status==="VERIFIED" && <p className="mt-3 text-sm font-semibold text-emerald-700">Payment verified.</p>}
