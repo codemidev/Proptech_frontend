@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useAuth } from "@clerk/nextjs";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, LoaderCircle, Minus, Plus, ShoppingBag, Trash2, Upload, X } from "lucide-react";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, resolveMediaUrl } from "@/lib/api";
 
 type Api<T> = { success: boolean; data: T; message?: string };
 type Product = {
@@ -37,7 +37,6 @@ export default function MarketplaceShopPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<Cart | null>(null);
   const [options, setOptions] = useState<PaymentOptions>({ flutterwaveEnabled: true, kuunEnabled: false });
-  const [payments, setPayments] = useState<Obligation[]>([]);
   const [instructions, setInstructions] = useState<Obligation[]>([]);
   const [address, setAddress] = useState("");
   const [phone, setPhone] = useState("");
@@ -119,7 +118,6 @@ export default function MarketplaceShopPage() {
       }
       const obligations = (result.data.paymentInstructions || []) as Obligation[];
       setInstructions(obligations);
-      setPayments(obligations);
       setShowCheckout(false);
       setNotice(`Order ${result.data.orderNumber} created. Complete each transfer and upload its proof below.`);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Checkout could not be completed."); }
@@ -135,7 +133,6 @@ export default function MarketplaceShopPage() {
       await apiFetch<Api<unknown>>(`/api/v1/marketplace/payments/${obligation.id}/proof`, getToken, {
         method: "POST", body: form,
       });
-      setPayments(current => current.map(item => item.id === obligation.id ? { ...item, status: "PROOF_SUBMITTED" } : item));
       setInstructions(current => current.map(item => item.id === obligation.id ? { ...item, status: "PROOF_SUBMITTED" } : item));
       setNotice("Proof uploaded. The payment is awaiting manual verification by the recipient.");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Proof could not be uploaded."); }
@@ -163,7 +160,7 @@ export default function MarketplaceShopPage() {
           products.length === 0 ? <div className="mt-8 rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center text-sm text-slate-500">No products are available yet.</div> :
           <div className="mt-7 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {products.map(product=><article key={product.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-              <div className="aspect-[4/3] bg-slate-100">{product.images?.[0] ? <img src={product.images[0]} alt={product.title} className="h-full w-full object-cover"/> : <div className="flex h-full items-center justify-center text-sm text-slate-400">No product image</div>}</div>
+              <div className="aspect-[4/3] bg-slate-100">{product.images?.[0] ? <img src={resolveMediaUrl(product.images[0])} alt={product.title} className="h-full w-full object-cover"/> : <div className="flex h-full items-center justify-center text-sm text-slate-400">No product image</div>}</div>
               <div className="p-4">
                 <p className="text-[11px] font-bold uppercase tracking-wide text-[#1A3C6E]">{product.category.name}</p>
                 <h2 className="mt-1 line-clamp-2 font-black">{product.title}</h2>
