@@ -357,13 +357,7 @@ export default function AdminDashboard() {
                 label="Organizations"
               />
 
-              <SidebarItem
-                icon={<ShieldIcon />}
-                label="Executive Invitations"
-                onClick={() => {
-                  window.location.href = "/dashboard/admin/invitations";
-                }}
-              />
+
 
               <SidebarItem
                 icon={<ShieldIcon />}
