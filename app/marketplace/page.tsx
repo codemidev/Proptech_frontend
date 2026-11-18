@@ -16,7 +16,11 @@ type Product = { id: string; title: string; slug: string; description?: string |
 type Service = { id: string; title: string; slug: string; description?: string | null; basePrice?: string | number | null; currency: string; estimatedDurationMinutes?: number | null; serviceAreas: string[]; images: string[]; category: Category; vendor: Vendor };
 type CartItem = { id: string; quantity: number; product: Product };
 type Cart = { id: string; items: CartItem[]; subtotal: string; currency: string };
-type Order = { id: string; orderNumber: string; status: string; deliveryStatus: string; total: string | number; currency: string; createdAt: string; items: Array<{ id: string; titleSnapshot: string; quantity: number; lineTotal: string | number; vendor: { businessName: string } }>; payment?: { status: string; reference: string } | null };
+type DeliveryQuote = {
+  id:string; quoteNumber:string; status:string; quoteAmount:string|number|null; trackingReference:string|null; vendorNotes:string|null;
+  vendor:{businessName:string}; serviceOffering:{title:string}; payment?:{reference:string;status:string}|null;
+};
+type Order = { id: string; orderNumber: string; status: string; deliveryStatus: string; total: string | number; currency: string; createdAt: string; items: Array<{ id: string; titleSnapshot: string; quantity: number; lineTotal: string | number; vendor: { businessName: string } }>; deliveryQuotes?:DeliveryQuote[]; payment?: { status: string; reference: string } | null };
 type ServiceBooking = {
   id: string; bookingNumber: string; status: string; serviceTitleSnapshot: string;
   serviceAddress: string; requestedScheduleAt: string | null; scheduledAt: string | null;
@@ -39,6 +43,7 @@ export default function MarketplacePage() {
   const [services, setServices] = useState<Service[]>([]);
   const [cart, setCart] = useState<Cart | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [deliveryProviderSelection, setDeliveryProviderSelection] = useState<Record<string,string>>({});
   const [serviceBookings, setServiceBookings] = useState<ServiceBooking[]>([]);
   const [bookingService, setBookingService] = useState<Service | null>(null);
   const [bookingAddress, setBookingAddress] = useState("");
@@ -170,6 +175,40 @@ export default function MarketplacePage() {
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Quote payment could not be initialized."); setBusy(""); }
   };
 
+  const refreshOrders = async () => {
+    const result = await apiFetch<ApiResult<Order[]>>("/api/v1/marketplace/orders/me", getToken);
+    setOrders(result.data || []);
+  };
+
+  const requestDelivery = async (order:Order) => {
+    const serviceOfferingId=deliveryProviderSelection[order.id];
+    if(!serviceOfferingId){setError("Choose a delivery provider first.");return;}
+    setBusy(order.id);setError("");setNotice("");
+    try {
+      await apiFetch<ApiResult<DeliveryQuote>>(`/api/v1/marketplace/orders/${order.id}/delivery-requests`,getToken,{method:"POST",body:JSON.stringify({serviceOfferingId})});
+      await refreshOrders();setNotice("Delivery quote request sent. The provider must quote before you can pay.");
+    } catch(e){setError(e instanceof Error?e.message:"Delivery quote request failed.");}
+    finally{setBusy("");}
+  };
+
+  const payDelivery = async (order:Order,quote:DeliveryQuote) => {
+    setBusy(quote.id);setError("");
+    try {
+      const result=await apiFetch<ApiResult<{paymentLink:string}>>(`/api/v1/marketplace/orders/${order.id}/delivery-requests/${quote.id}/checkout`,getToken,{method:"POST"});
+      if(!result.data.paymentLink)throw new Error("The payment provider did not return a checkout link.");
+      window.location.assign(result.data.paymentLink);
+    } catch(e){setError(e instanceof Error?e.message:"Delivery payment could not be initialized.");setBusy("");}
+  };
+
+  const cancelDelivery = async (order:Order,quote:DeliveryQuote) => {
+    setBusy(quote.id);setError("");
+    try {
+      await apiFetch<ApiResult<unknown>>(`/api/v1/marketplace/orders/${order.id}/delivery-requests/${quote.id}/cancel`,getToken,{method:"POST"});
+      await refreshOrders();setNotice("Delivery request cancelled.");
+    } catch(e){setError(e instanceof Error?e.message:"Delivery request could not be cancelled.");}
+    finally{setBusy("");}
+  };
+
   const cancelServiceRequest = async (booking: ServiceBooking) => {
     setBusy(booking.id); setError("");
     try {
@@ -289,7 +328,26 @@ export default function MarketplacePage() {
 
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-2"><ClipboardList size={19} className="text-[#1A3C6E]"/><h2 className="font-black">Your orders</h2></div>
-            {!isSignedIn ? <p className="mt-3 text-sm text-slate-500">Sign in to view your orders.</p> : orders.length ? <div className="mt-3 space-y-3">{orders.slice(0, 5).map((order) => <div key={order.id} className="rounded-xl bg-slate-50 p-3"><div className="flex justify-between gap-2"><p className="text-xs font-black">{order.orderNumber}</p><span className="text-[10px] font-bold uppercase text-[#1A3C6E]">{order.status.replaceAll("_", " ")}</span></div><p className="mt-1 text-sm font-bold">{money(order.total, order.currency)}</p><p className="mt-1 text-xs text-slate-500">{order.items.length} line item(s) · Delivery: {order.deliveryStatus.replaceAll("_", " ").toLowerCase()}</p></div>)}</div> : <p className="mt-3 text-sm text-slate-500">Your completed checkouts will appear here.</p>}
+            {!isSignedIn ? <p className="mt-3 text-sm text-slate-500">Sign in to view your orders.</p> : orders.length ? <div className="mt-3 space-y-3">{orders.slice(0, 5).map((order) => <div key={order.id} className="rounded-xl bg-slate-50 p-3">
+              <div className="flex justify-between gap-2"><p className="text-xs font-black">{order.orderNumber}</p><span className="text-[10px] font-bold uppercase text-[#1A3C6E]">{order.status.replaceAll("_", " ")}</span></div>
+              <p className="mt-1 text-sm font-bold">{money(order.total, order.currency)}</p>
+              <p className="mt-1 text-xs text-slate-500">{order.items.length} line item(s) · Delivery: {order.deliveryStatus.replaceAll("_", " ").toLowerCase()}</p>
+              {(order.deliveryQuotes||[]).map(quote=><div key={quote.id} className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+                <p className="text-xs font-black">{quote.quoteNumber} · {quote.status.replaceAll("_"," ")}</p>
+                <p className="mt-1 text-xs text-slate-600">{quote.vendor.businessName} · {quote.serviceOffering.title}</p>
+                {quote.quoteAmount!=null&&<p className="mt-1 text-sm font-black">{money(quote.quoteAmount)}</p>}
+                {quote.vendorNotes&&<p className="mt-1 text-xs text-slate-500">{quote.vendorNotes}</p>}
+                {quote.trackingReference&&<p className="mt-1 text-xs font-semibold text-[#1A3C6E]">Tracking: {quote.trackingReference}</p>}
+                {quote.status==="QUOTED"&&<button type="button" disabled={busy===quote.id} onClick={()=>void payDelivery(order,quote)} className="mt-2 w-full rounded-lg bg-[#FACC15] px-3 py-2 text-xs font-black text-slate-950">Pay delivery quote</button>}
+                {["REQUESTED","QUOTED"].includes(quote.status)&&<button type="button" disabled={busy===quote.id} onClick={()=>void cancelDelivery(order,quote)} className="mt-2 w-full rounded-lg border px-3 py-2 text-xs font-bold">Cancel delivery request</button>}
+              </div>)}
+              {order.status==="PAID"&&order.deliveryStatus==="QUOTE_REQUIRED"&&<div className="mt-3 space-y-2">
+                {services.filter(s=>s.category.kind==="DELIVERY").length ? <>
+                  <label className="block text-xs font-bold">Choose a delivery provider<select value={deliveryProviderSelection[order.id]||""} onChange={e=>setDeliveryProviderSelection(current=>({...current,[order.id]:e.target.value}))} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs"><option value="">Select provider</option>{services.filter(s=>s.category.kind==="DELIVERY").map(s=><option key={s.id} value={s.id}>{s.vendor.businessName} · {s.title}</option>)}</select></label>
+                  <button type="button" disabled={busy===order.id} onClick={()=>void requestDelivery(order)} className="w-full rounded-lg bg-[#1A3C6E] px-3 py-2 text-xs font-bold text-white">Request delivery quote</button>
+                </>:<p className="text-xs text-slate-500">No verified delivery providers are currently listed.</p>}
+              </div>}
+            </div>)}</div> : <p className="mt-3 text-sm text-slate-500">Your completed checkouts will appear here.</p>}
           </section>
 
           <section className="rounded-2xl bg-[#FFF8D9] p-5 ring-1 ring-[#FACC15]/40"><div className="flex items-center gap-2"><Boxes size={19}/><h2 className="font-black">Sell on Aviritech</h2></div><p className="mt-2 text-sm leading-6 text-slate-600">Merchants, IoT providers, delivery partners and skilled professionals can apply to join the marketplace.</p><Link href="/dashboard/vendor" className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-[#1A3C6E]">Vendor workspace <ChevronRight size={16}/></Link></section>
