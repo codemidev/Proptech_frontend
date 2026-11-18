@@ -441,6 +441,7 @@ export default function AgentDashboard() {
   const [agentProfile, setAgentProfile] = useState<AgentProfile | null>(null);
   const [agentProperties, setAgentProperties] = useState<AgentProperty[]>([]);
   const [referralCode, setReferralCode] = useState<string | null>(null);
+  const [referralError, setReferralError] = useState("");
   const [payoutBank, setPayoutBank] = useState<AgentPayoutBankDetails>({
     bankCode: "",
     bankName: "",
@@ -810,13 +811,28 @@ export default function AgentDashboard() {
   async function copyAgentReferralLink() {
     if (!referralCode) return;
 
+    const url = new URL("/sign-up", window.location.origin);
+    url.searchParams.set("ref", referralCode);
+    const link = url.toString();
+
     try {
-      const url = new URL("/sign-up", window.location.origin);
-      url.searchParams.set("ref", referralCode);
-      await navigator.clipboard.writeText(url.toString());
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(link);
+      } else {
+        const input = document.createElement("textarea");
+        input.value = link;
+        input.setAttribute("readonly", "");
+        input.style.position = "fixed";
+        input.style.opacity = "0";
+        document.body.appendChild(input);
+        input.select();
+        const copied = document.execCommand("copy");
+        document.body.removeChild(input);
+        if (!copied) throw new Error("Clipboard access is unavailable");
+      }
       setShareMessage("Agent invitation link copied.");
     } catch {
-      setShareMessage("Unable to copy the invitation link. Check clipboard permissions.");
+      setShareMessage("Unable to copy the invitation link. Please copy it from the address field or check browser permissions.");
     }
   }
 
@@ -955,12 +971,26 @@ export default function AgentDashboard() {
     setLoading(true);
     setError("");
 
+    setReferralError("");
     const referralRequest = apiFetch<{
       success: boolean;
       data: { referralCode: string };
     }>("/api/v1/agents/me/referral", getToken)
-      .then((response) => response.data?.referralCode ?? null)
-      .catch(() => null);
+      .then((response) => {
+        const code = response.data?.referralCode ?? null;
+        if (!code) {
+          setReferralError("Your referral code is not available yet. Confirm that your agent account is active and verified.");
+        }
+        return code;
+      })
+      .catch((err) => {
+        setReferralError(
+          err instanceof Error
+            ? err.message
+            : "Unable to load your Agent invitation link.",
+        );
+        return null;
+      });
 
     void referralRequest.then(setReferralCode);
 
@@ -2163,6 +2193,11 @@ if (!isSignedIn) {
                   <span className="font-bold tracking-wider text-slate-800">
                     {referralCode}
                   </span>
+                </p>
+              )}
+              {referralError && (
+                <p role="status" className="mt-2 max-w-xl text-xs font-medium text-amber-700">
+                  {referralError}
                 </p>
               )}
             </div>
