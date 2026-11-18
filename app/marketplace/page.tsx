@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useAuth } from "@clerk/nextjs";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ArrowRight, Boxes, Cable, Camera, ChevronRight, ClipboardList, Home,
+  ArrowRight, Boxes, Camera, ChevronRight, ClipboardList, Home,
   Lightbulb, LoaderCircle, Search, ShieldCheck, ShoppingBasket, Truck,
   Wrench, X,
 } from "lucide-react";
@@ -18,7 +18,7 @@ type CartItem = { id: string; quantity: number; product: Product };
 type Cart = { id: string; items: CartItem[]; subtotal: string; currency: string };
 type Order = { id: string; orderNumber: string; status: string; deliveryStatus: string; total: string | number; currency: string; createdAt: string; items: Array<{ id: string; titleSnapshot: string; quantity: number; lineTotal: string | number; vendor: { businessName: string } }>; payment?: { status: string; reference: string } | null };
 type ApiResult<T> = { success: boolean; data: T; message?: string };
-type ListingResult<T> = { [key: string]: T[]; pagination?: { total: number; page: number; totalPages: number } };
+type ListingResult<T> = { products?: T[]; services?: T[]; pagination?: { total: number; page: number; totalPages: number } };
 
 const money = (amount: string | number, currency = "NGN") =>
   new Intl.NumberFormat("en-NG", { style: "currency", currency, maximumFractionDigits: 2 }).format(Number(amount || 0));
