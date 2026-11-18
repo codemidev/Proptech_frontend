@@ -17,6 +17,13 @@ type Service = { id: string; title: string; slug: string; description?: string |
 type CartItem = { id: string; quantity: number; product: Product };
 type Cart = { id: string; items: CartItem[]; subtotal: string; currency: string };
 type Order = { id: string; orderNumber: string; status: string; deliveryStatus: string; total: string | number; currency: string; createdAt: string; items: Array<{ id: string; titleSnapshot: string; quantity: number; lineTotal: string | number; vendor: { businessName: string } }>; payment?: { status: string; reference: string } | null };
+type ServiceBooking = {
+  id: string; bookingNumber: string; status: string; serviceTitleSnapshot: string;
+  serviceAddress: string; requestedScheduleAt: string | null; scheduledAt: string | null;
+  quoteAmount: string | number | null; vendorNotes: string | null;
+  vendor: { businessName: string }; serviceOffering: { title: string };
+  payment?: { reference: string; status: string } | null;
+};
 type ApiResult<T> = { success: boolean; data: T; message?: string };
 type ListingResult<T> = { products?: T[]; services?: T[]; pagination?: { total: number; page: number; totalPages: number } };
 
@@ -32,6 +39,13 @@ export default function MarketplacePage() {
   const [services, setServices] = useState<Service[]>([]);
   const [cart, setCart] = useState<Cart | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [serviceBookings, setServiceBookings] = useState<ServiceBooking[]>([]);
+  const [bookingService, setBookingService] = useState<Service | null>(null);
+  const [bookingAddress, setBookingAddress] = useState("");
+  const [bookingPhone, setBookingPhone] = useState("");
+  const [bookingSchedule, setBookingSchedule] = useState("");
+  const [bookingNotes, setBookingNotes] = useState("");
+
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
   const [activeTab, setActiveTab] = useState<"products" | "services">("products");
@@ -58,13 +72,15 @@ export default function MarketplacePage() {
       apiFetch<ApiResult<ListingResult<Service>>>("/api/v1/marketplace/services?page=1&limit=50", getToken),
       isSignedIn ? apiFetch<ApiResult<Cart>>("/api/v1/marketplace/cart", getToken) : Promise.resolve(null),
       isSignedIn ? apiFetch<ApiResult<Order[]>>("/api/v1/marketplace/orders/me", getToken) : Promise.resolve(null),
-    ]).then(([categoryResult, productResult, serviceResult, cartResult, orderResult]) => {
+      isSignedIn ? apiFetch<ApiResult<ServiceBooking[]>>("/api/v1/marketplace/bookings/me", getToken) : Promise.resolve(null),
+    ]).then(([categoryResult, productResult, serviceResult, cartResult, orderResult, bookingResult]) => {
       if (!active) return;
       setCategories(categoryResult.data || []);
       setProducts(productResult.data?.products || []);
       setServices(serviceResult.data?.services || []);
       setCart(cartResult?.data || null);
       setOrders(orderResult?.data || []);
+      setServiceBookings(bookingResult?.data || []);
     }).catch((cause: unknown) => {
       if (active) setError(cause instanceof Error ? cause.message : "Marketplace could not be loaded.");
     }).finally(() => { if (active) setLoading(false); });
@@ -121,6 +137,48 @@ export default function MarketplacePage() {
       if (!result.data.paymentLink) throw new Error("The payment provider did not return a checkout link.");
       window.location.assign(result.data.paymentLink);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Checkout could not be initialized."); setBusy(""); }
+  };
+
+  const requestBooking = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!bookingService) return;
+    setBusy("booking"); setError(""); setNotice("");
+    try {
+      await apiFetch<ApiResult<ServiceBooking>>(`/api/v1/marketplace/services/${bookingService.id}/bookings`, getToken, {
+        method: "POST",
+        body: JSON.stringify({
+          serviceAddress: bookingAddress,
+          contactPhone: bookingPhone || undefined,
+          requestedScheduleAt: bookingSchedule ? new Date(bookingSchedule).toISOString() : undefined,
+          customerNotes: bookingNotes || undefined,
+        }),
+      });
+      setBookingService(null); setBookingAddress(""); setBookingPhone(""); setBookingSchedule(""); setBookingNotes("");
+      setNotice("Service request sent. The provider must respond with a quote and schedule before payment.");
+      const result = await apiFetch<ApiResult<ServiceBooking[]>>("/api/v1/marketplace/bookings/me", getToken);
+      setServiceBookings(result.data || []);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Service request could not be sent."); }
+    finally { setBusy(""); }
+  };
+
+  const payServiceQuote = async (booking: ServiceBooking) => {
+    setBusy(booking.id); setError("");
+    try {
+      const result = await apiFetch<ApiResult<{ paymentLink: string }>>(`/api/v1/marketplace/bookings/${booking.id}/checkout`, getToken, { method: "POST" });
+      if (!result.data.paymentLink) throw new Error("The payment provider did not return a checkout link.");
+      window.location.assign(result.data.paymentLink);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Quote payment could not be initialized."); setBusy(""); }
+  };
+
+  const cancelServiceRequest = async (booking: ServiceBooking) => {
+    setBusy(booking.id); setError("");
+    try {
+      await apiFetch<ApiResult<unknown>>(`/api/v1/marketplace/bookings/${booking.id}/cancel`, getToken, { method: "POST" });
+      const result = await apiFetch<ApiResult<ServiceBooking[]>>("/api/v1/marketplace/bookings/me", getToken);
+      setServiceBookings(result.data || []);
+      setNotice("Service request cancelled.");
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Service request could not be cancelled."); }
+    finally { setBusy(""); }
   };
 
   const categoryOptions = categories.filter((item) => activeTab === "products"
@@ -192,7 +250,8 @@ export default function MarketplacePage() {
                 <div className="flex items-center justify-between"><span className="rounded-lg bg-[#FACC15]/20 p-2 text-[#1A3C6E]">{service.category.kind === "DELIVERY" ? <Truck size={20}/> : service.category.kind === "SMART_HOME" ? <Camera size={20}/> : <Wrench size={20}/>}</span><span className="text-xs text-slate-500">{groupLabel(service.category.kind)}</span></div>
                 <p className="mt-4 text-xs font-semibold text-[#1A3C6E]">{service.category.name}</p><h3 className="mt-1 font-extrabold">{service.title}</h3><p className="mt-1 min-h-10 text-sm text-slate-500">{service.description || "Service offered by a verified Aviritech provider."}</p>
                 <p className="mt-3 text-lg font-black">{service.basePrice == null ? "Quote required" : money(service.basePrice, service.currency)}</p><p className="mt-1 text-xs text-slate-500">Provided by {service.vendor.businessName}{service.serviceAreas.length ? ` · ${service.serviceAreas.join(", ")}` : ""}</p>
-                <div className="mt-4 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">Booking and provider availability will be enabled when the service-booking workflow is released.</div>
+                <button type="button" onClick={() => isSignedIn ? setBookingService(service) : setNotice("Sign in to request this service.")} className="mt-4 w-full rounded-xl bg-[#1A3C6E] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#244b82]">Request service quote</button>
+                <p className="mt-2 text-xs text-slate-500">Your request is not a confirmed appointment. The provider must quote and schedule it first.</p>
               </article>)}
             </div> : <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center"><Wrench className="mx-auto text-slate-300" size={30}/><h3 className="mt-3 font-bold">No services listed yet</h3><p className="mt-1 text-sm text-slate-500">Verified providers’ active services will appear here when available.</p></div>
           )}
@@ -217,6 +276,18 @@ export default function MarketplacePage() {
           </section>
 
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center gap-2"><Wrench size={19} className="text-[#1A3C6E]"/><h2 className="font-black">Service requests</h2></div>
+            {!isSignedIn ? <p className="mt-3 text-sm text-slate-500">Sign in to view your service requests.</p> : serviceBookings.length ? <div className="mt-3 space-y-3">{serviceBookings.slice(0,5).map((booking) => <div key={booking.id} className="rounded-xl bg-slate-50 p-3">
+              <div className="flex justify-between gap-2"><p className="text-xs font-black">{booking.bookingNumber}</p><span className="text-[10px] font-bold uppercase text-[#1A3C6E]">{booking.status.replaceAll("_"," ")}</span></div>
+              <p className="mt-1 text-sm font-bold">{booking.serviceTitleSnapshot}</p><p className="text-xs text-slate-500">{booking.vendor.businessName}</p>
+              {booking.quoteAmount != null && <p className="mt-2 text-sm font-black">{money(booking.quoteAmount)}</p>}
+              {booking.vendorNotes && <p className="mt-1 text-xs text-slate-600">{booking.vendorNotes}</p>}
+              {booking.status === "QUOTE_PROVIDED" && <button type="button" disabled={busy===booking.id} onClick={() => void payServiceQuote(booking)} className="mt-2 w-full rounded-lg bg-[#FACC15] px-3 py-2 text-xs font-black text-slate-950">Pay provider quote</button>}
+              {["REQUESTED","QUOTE_PROVIDED"].includes(booking.status) && <button type="button" disabled={busy===booking.id} onClick={() => void cancelServiceRequest(booking)} className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600">Cancel request</button>}
+            </div>)}</div> : <p className="mt-3 text-sm text-slate-500">You have not requested any services yet.</p>}
+          </section>
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-2"><ClipboardList size={19} className="text-[#1A3C6E]"/><h2 className="font-black">Your orders</h2></div>
             {!isSignedIn ? <p className="mt-3 text-sm text-slate-500">Sign in to view your orders.</p> : orders.length ? <div className="mt-3 space-y-3">{orders.slice(0, 5).map((order) => <div key={order.id} className="rounded-xl bg-slate-50 p-3"><div className="flex justify-between gap-2"><p className="text-xs font-black">{order.orderNumber}</p><span className="text-[10px] font-bold uppercase text-[#1A3C6E]">{order.status.replaceAll("_", " ")}</span></div><p className="mt-1 text-sm font-bold">{money(order.total, order.currency)}</p><p className="mt-1 text-xs text-slate-500">{order.items.length} line item(s) · Delivery: {order.deliveryStatus.replaceAll("_", " ").toLowerCase()}</p></div>)}</div> : <p className="mt-3 text-sm text-slate-500">Your completed checkouts will appear here.</p>}
           </section>
@@ -225,6 +296,16 @@ export default function MarketplacePage() {
         </aside>
       </section>
 
+      {bookingService && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
+        <form onSubmit={requestBooking} className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
+          <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-wide text-[#1A3C6E]">Service request</p><h2 className="mt-1 text-xl font-black">{bookingService.title}</h2><p className="mt-1 text-sm text-slate-500">The provider will confirm availability and send a quote.</p></div><button type="button" onClick={()=>setBookingService(null)} className="rounded-lg border px-2.5 py-1.5 text-sm">Close</button></div>
+          <label className="mt-5 block text-sm font-bold">Service address<input required minLength={8} maxLength={500} value={bookingAddress} onChange={e=>setBookingAddress(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-normal" placeholder="House number, street, area, city"/></label>
+          <label className="mt-3 block text-sm font-bold">Contact phone<input value={bookingPhone} onChange={e=>setBookingPhone(e.target.value)} maxLength={30} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-normal" placeholder="+234…"/></label>
+          <label className="mt-3 block text-sm font-bold">Preferred date and time (optional)<input type="datetime-local" value={bookingSchedule} onChange={e=>setBookingSchedule(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-normal"/></label>
+          <label className="mt-3 block text-sm font-bold">Notes for provider (optional)<textarea rows={3} maxLength={2000} value={bookingNotes} onChange={e=>setBookingNotes(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-normal" placeholder="Describe the work or requirements"/></label>
+          <button disabled={busy==="booking"} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#FACC15] px-4 py-3 text-sm font-black text-slate-950">{busy==="booking"?<LoaderCircle size={16} className="animate-spin"/>:"Send service request"}</button>
+        </form>
+      </div>}
       <footer className="border-t border-slate-200 bg-white"><div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-6 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8"><span>Aviritech PropTech Marketplace</span><span>Secure payments are processed by the configured payment provider.</span></div></footer>
     </main>
   );
