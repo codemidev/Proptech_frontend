@@ -58,6 +58,7 @@ export default function MarketplacePage() {
             AVIRITECH <span className="font-medium text-slate-500">Marketplace</span>
           </Link>
           <nav className="flex items-center gap-3 text-sm">
+            <Link href="/marketplace/shop" className="rounded-xl bg-[#FACC15] px-4 py-2.5 font-bold text-slate-950 hover:bg-[#F5C518]">Shop products</Link>
             <Link href="/dashboard/owner/maintenance" className="hidden font-semibold text-slate-600 hover:text-[#1A3C6E] sm:inline">Maintenance</Link>
             <Link href="/dashboard" className="rounded-xl bg-[#1A3C6E] px-4 py-2.5 font-bold text-white hover:bg-[#244b82]">My dashboard</Link>
           </nav>
