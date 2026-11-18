@@ -72,7 +72,7 @@ export default function MarketplacePage() {
       apiFetch<ApiResult<ListingResult<Service>>>("/api/v1/marketplace/services?page=1&limit=50", getToken),
       isSignedIn ? apiFetch<ApiResult<Cart>>("/api/v1/marketplace/cart", getToken) : Promise.resolve(null),
       isSignedIn ? apiFetch<ApiResult<Order[]>>("/api/v1/marketplace/orders/me", getToken) : Promise.resolve(null),
-      isSignedIn ? apiFetch<ApiResult<ServiceBooking[]>>("/api/v1/marketplace/bookings/me", getToken) : Promise.resolve(null),
+      isSignedIn ? apiFetch<ApiResult<ServiceBooking[]>>("/api/v1/marketplace/bookings/me", getToken).catch(() => null) : Promise.resolve(null),
     ]).then(([categoryResult, productResult, serviceResult, cartResult, orderResult, bookingResult]) => {
       if (!active) return;
       setCategories(categoryResult.data || []);
