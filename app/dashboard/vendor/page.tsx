@@ -8,7 +8,7 @@ import { apiFetch } from "@/lib/api";
 
 type Api<T> = { success: boolean; data: T; message?: string };
 type Category = { id: string; name: string; slug: string; kind: "PRODUCT" | "SMART_HOME" | "HOME_SERVICE" | "DELIVERY" };
-type Vendor = { id: string; businessName: string; type: string; status: "PENDING" | "VERIFIED" | "REJECTED" | "SUSPENDED"; email: string | null; phone: string | null; address: string | null; createdAt: string };
+type Vendor = { id: string; businessName: string; type: string; status: "PENDING" | "VERIFIED" | "REJECTED" | "SUSPENDED"; email: string | null; phone: string | null; address: string | null; kuunAccountName?: string | null; kuunAccountNumber?: string | null; createdAt: string };
 type Product = { id: string; title: string; price: string | number; quantityAvailable: number; status: "DRAFT" | "ACTIVE" | "ARCHIVED"; category: { id: string; name: string } };
 type Service = { id: string; title: string; basePrice: string | number | null; serviceAreas: string[]; status: "DRAFT" | "ACTIVE" | "ARCHIVED"; category: { id: string; name: string } };
 type VendorBooking = {
@@ -34,6 +34,7 @@ export default function VendorDashboard() {
   const [deliveryRequests,setDeliveryRequests] = useState<DeliveryRequest[]>([]);
   const [loading,setLoading] = useState(true), [saving,setSaving] = useState(false), [error,setError] = useState(""), [notice,setNotice] = useState("");
   const [businessName,setBusinessName] = useState(""), [type,setType] = useState("MERCHANT"), [email,setEmail] = useState(""), [phone,setPhone] = useState(""), [address,setAddress] = useState("");
+  const [kuunAccountName,setKuunAccountName] = useState(""), [kuunAccountNumber,setKuunAccountNumber] = useState("");
   const [productOpen,setProductOpen] = useState(false), [serviceOpen,setServiceOpen] = useState(false);
   const [productTitle,setProductTitle] = useState(""), [productCategory,setProductCategory] = useState(""), [productPrice,setProductPrice] = useState(""), [stock,setStock] = useState("1"), [productDescription,setProductDescription] = useState(""), [sku,setSku] = useState(""), [images,setImages] = useState("");
   const [serviceTitle,setServiceTitle] = useState(""), [serviceCategory,setServiceCategory] = useState(""), [servicePrice,setServicePrice] = useState(""), [duration,setDuration] = useState(""), [areas,setAreas] = useState(""), [serviceDescription,setServiceDescription] = useState("");
@@ -45,7 +46,7 @@ export default function VendorDashboard() {
         apiFetch<Api<Vendor>>("/api/v1/marketplace/vendors/me",getToken),
         apiFetch<Api<Category[]>>("/api/v1/marketplace/categories",getToken),
       ]);
-      setVendor(p.data); setCategories(c.data || []);
+      setVendor(p.data); setKuunAccountName(p.data.kuunAccountName || ""); setKuunAccountNumber(p.data.kuunAccountNumber || ""); setCategories(c.data || []);
       if(p.data.status === "VERIFIED") {
         const [productsResult,servicesResult,bookingsResult,deliveryResult] = await Promise.all([
           apiFetch<Api<Product[]>>("/api/v1/marketplace/vendors/me/products",getToken),
@@ -75,6 +76,13 @@ export default function VendorDashboard() {
       const r=await apiFetch<Api<Vendor>>("/api/v1/marketplace/vendors/me",getToken,{method:"POST",body:JSON.stringify({businessName:businessName.trim(),type,email:email.trim()||undefined,phone:phone.trim()||undefined,address:address.trim()||undefined})});
       setVendor(r.data);setNotice("Application submitted. An administrator must verify your business before you can publish listings.");
     } catch(x) {setError(x instanceof Error?x.message:"Application failed.");} finally {setSaving(false);}
+  }
+  async function saveKuunAccount(e:React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();setSaving(true);setError("");setNotice("");
+    try {
+      const r=await apiFetch<Api<{kuunAccountName:string;kuunAccountNumber:string}>>("/api/v1/marketplace/vendors/me/kuun-account",getToken,{method:"PATCH",body:JSON.stringify({kuunAccountName:kuunAccountName.trim(),kuunAccountNumber:kuunAccountNumber.trim()})});
+      setKuunAccountName(r.data.kuunAccountName);setKuunAccountNumber(r.data.kuunAccountNumber);setNotice("Kuun receiving account saved. Flutterwave checkout remains active for customers.");await load();
+    } catch(e) {setError(e instanceof Error?e.message:"Kuun account details could not be saved.");} finally {setSaving(false);}
   }
   async function createProduct(e:React.FormEvent<HTMLFormElement>) {
     e.preventDefault();setSaving(true);setError("");setNotice("");
@@ -155,6 +163,7 @@ export default function VendorDashboard() {
       :<>
         <section className="mt-7 rounded-2xl border bg-white p-5 shadow-sm"><div className="flex flex-wrap items-center justify-between gap-4"><div><div className="flex flex-wrap items-center gap-3"><h2 className="text-xl font-black">{vendor.businessName}</h2><span className={`rounded-full px-3 py-1 text-xs font-bold ${vendor.status==="VERIFIED"?"bg-emerald-100 text-emerald-800":vendor.status==="PENDING"?"bg-amber-100 text-amber-800":"bg-red-100 text-red-800"}`}>{vendor.status}</span></div><p className="mt-2 text-sm text-slate-500">{vendor.type.replaceAll("_"," ")} · {vendor.email||"No email"} · {vendor.phone||"No phone"}</p><p className="mt-1 text-xs text-slate-500">{vendor.address||"No business address supplied"}</p></div><div className="flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-3 text-sm font-semibold"><StatusIcon size={18}/>{vendor.status==="VERIFIED"?"Verified provider":vendor.status==="PENDING"?"Awaiting review":"Listing access restricted"}</div></div>
         {vendor.status==="PENDING"&&<p className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Your application is awaiting administrator review. You can prepare your details, but listings remain unavailable until approval.</p>}
+        {vendor.type==="MERCHANT"&&<div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50/60 p-5"><div><h3 className="font-black text-slate-900">Kuun receiving account</h3><p className="mt-1 text-sm text-slate-600">Add the Kuun account customers should transfer Marketplace payments to. These details are kept in your vendor workspace and are not shown on public listings.</p></div><form onSubmit={saveKuunAccount} className="mt-4 grid gap-3 sm:grid-cols-2"><label className="text-sm font-semibold text-slate-800">Account name<input required minLength={2} maxLength={120} value={kuunAccountName} onChange={e=>setKuunAccountName(e.target.value)} className={field} placeholder="Name registered to the Kuun account"/></label><label className="text-sm font-semibold text-slate-800">Kuun account number<input required inputMode="numeric" pattern="[0-9]{8,20}" minLength={8} maxLength={20} value={kuunAccountNumber} onChange={e=>setKuunAccountNumber(e.target.value.replace(/[^0-9]/g,""))} className={field} placeholder="Enter Kuun account number"/></label><div className="sm:col-span-2 flex flex-wrap items-center gap-3"><button disabled={saving} className={primary}>{saving?<LoaderCircle size={16} className="animate-spin"/>:<BadgeCheck size={16}/>}Save Kuun account</button><span className="text-xs text-slate-600">Flutterwave remains available; this does not switch off existing checkout.</span></div></form></div>}
         {vendor.status==="REJECTED"&&<p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800">Your application was not approved. Contact Aviritech support for review guidance.</p>}
         {vendor.status==="SUSPENDED"&&<p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800">Your vendor access is suspended. Listing management is disabled.</p>}</section>
         {vendor.status==="VERIFIED"&&<>
