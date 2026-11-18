@@ -21,6 +21,14 @@ type Product = {
   currency: string; quantityAvailable: number; status: "DRAFT" | "ACTIVE" | "ARCHIVED";
   images: string[]; category: { id: string; name: string };
 };
+type VendorOrder = {
+  id: string; orderNumber: string; status: string; currency: string; createdAt: string;
+  deliveryAddress: string; deliveryPhone: string | null; vendorSubtotal: string;
+  buyer: { id: string; firstName: string | null; lastName: string | null; email: string; phoneNumber: string | null };
+  items: { id: string; titleSnapshot: string; skuSnapshot: string | null; unitPrice: string; quantity: number; lineTotal: string }[];
+  payment: { status: string; method: string; reference: string } | null;
+  paymentObligations: { id: string; reference: string; amount: string; status: string; proofSubmittedAt: string | null }[];
+};
 type MerchantPayment = {
   id: string;
   reference: string;
@@ -50,6 +58,7 @@ export default function VendorDashboard() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [payments, setPayments] = useState<MerchantPayment[]>([]);
+  const [orders, setOrders] = useState<VendorOrder[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [productTitle, setProductTitle] = useState("");
@@ -73,11 +82,13 @@ export default function VendorDashboard() {
       setAccountName(result.data.kuunAccountName || "");
       setAccountNumber(result.data.kuunAccountNumber || "");
       if (result.data.status === "VERIFIED") {
-        const [paymentResult, categoryResult] = await Promise.all([
+        const [paymentResult, categoryResult, orderResult] = await Promise.all([
           apiFetch<Api<MerchantPayment[]>>("/api/v1/marketplace/vendors/me/payments", getToken),
           apiFetch<Api<Category[]>>("/api/v1/marketplace/categories", getToken),
+          apiFetch<Api<VendorOrder[]>>("/api/v1/marketplace/vendors/me/orders", getToken),
         ]);
         setPayments(paymentResult.data || []);
+        setOrders(orderResult.data || []);
         const productCategories = (categoryResult.data || []).filter(category => category.kind === "PRODUCT" || category.kind === "SMART_HOME");
         setCategories(productCategories);
         setProductCategoryId(current => current || productCategories[0]?.id || "");
@@ -85,6 +96,7 @@ export default function VendorDashboard() {
         setProducts(productResult.data || []);
       } else {
         setPayments([]);
+        setOrders([]);
         setCategories([]);
         setProducts([]);
       }
@@ -280,6 +292,18 @@ export default function VendorDashboard() {
         )}
 
 
+
+
+        {vendor?.status === "VERIFIED" && (
+          <section className="mt-7 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+            <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.18em] text-[#1A3C6E]">Order fulfilment</p><h2 className="mt-1 text-xl font-black">Customer orders</h2><p className="mt-1 text-sm text-slate-500">Only products belonging to your merchant profile are shown.</p></div><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">{orders.length} order(s)</span></div>
+            {orders.length===0 ? <p className="mt-5 rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">No orders for your products yet.</p> : <div className="mt-5 space-y-3">{orders.map(order=><article key={order.id} className="rounded-xl border border-slate-200 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-black">{order.orderNumber}</h3><p className="mt-1 text-xs text-slate-500">{new Date(order.createdAt).toLocaleString("en-NG")} · {order.buyer.firstName||""} {order.buyer.lastName||""} · {order.buyer.email}</p></div><span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-[#1A3C6E]">{order.status.replaceAll("_"," ")}</span></div>
+              <div className="mt-3 space-y-2">{order.items.map(item=><div key={item.id} className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 p-3 text-sm"><div><p className="font-bold">{item.titleSnapshot}</p><p className="text-xs text-slate-500">Qty {item.quantity} · {item.skuSnapshot||"No SKU"}</p></div><strong>{new Intl.NumberFormat("en-NG",{style:"currency",currency:order.currency}).format(Number(item.lineTotal))}</strong></div>)}</div>
+              <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2"><p><span className="text-slate-500">Your order subtotal:</span> <strong>{new Intl.NumberFormat("en-NG",{style:"currency",currency:order.currency}).format(Number(order.vendorSubtotal))}</strong></p><p><span className="text-slate-500">Payment:</span> <strong>{order.paymentObligations[0]?.status.replaceAll("_"," ") || order.payment?.status || "Not paid"}</strong></p><p className="sm:col-span-2"><span className="text-slate-500">Delivery:</span> {order.deliveryAddress}{order.deliveryPhone ? " · " + order.deliveryPhone : ""}</p></div>
+            </article>)}</div>}
+          </section>
+        )}
 
         {vendor?.status === "VERIFIED" && (vendor.type === "MERCHANT" || vendor.type === "IOT_PROVIDER") && (
           <section className="mt-7 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
