@@ -82,18 +82,24 @@ export default function VendorDashboard() {
       setAccountName(result.data.kuunAccountName || "");
       setAccountNumber(result.data.kuunAccountNumber || "");
       if (result.data.status === "VERIFIED") {
-        const [paymentResult, categoryResult, orderResult] = await Promise.all([
-          apiFetch<Api<MerchantPayment[]>>("/api/v1/marketplace/vendors/me/payments", getToken),
-          apiFetch<Api<Category[]>>("/api/v1/marketplace/categories", getToken),
-          apiFetch<Api<VendorOrder[]>>("/api/v1/marketplace/vendors/me/orders", getToken),
-        ]);
+        const paymentResult = await apiFetch<Api<MerchantPayment[]>>("/api/v1/marketplace/vendors/me/payments", getToken);
         setPayments(paymentResult.data || []);
-        setOrders(orderResult.data || []);
-        const productCategories = (categoryResult.data || []).filter(category => category.kind === "PRODUCT" || category.kind === "SMART_HOME");
-        setCategories(productCategories);
-        setProductCategoryId(current => current || productCategories[0]?.id || "");
-        const productResult = await apiFetch<Api<Product[]>>("/api/v1/marketplace/vendors/me/products", getToken);
-        setProducts(productResult.data || []);
+        if (result.data.type === "MERCHANT" || result.data.type === "IOT_PROVIDER") {
+          const [categoryResult, orderResult, productResult] = await Promise.all([
+            apiFetch<Api<Category[]>>("/api/v1/marketplace/categories", getToken),
+            apiFetch<Api<VendorOrder[]>>("/api/v1/marketplace/vendors/me/orders", getToken),
+            apiFetch<Api<Product[]>>("/api/v1/marketplace/vendors/me/products", getToken),
+          ]);
+          setOrders(orderResult.data || []);
+          const productCategories = (categoryResult.data || []).filter(category => category.kind === "PRODUCT" || category.kind === "SMART_HOME");
+          setCategories(productCategories);
+          setProductCategoryId(current => current || productCategories[0]?.id || "");
+          setProducts(productResult.data || []);
+        } else {
+          setOrders([]);
+          setCategories([]);
+          setProducts([]);
+        }
       } else {
         setPayments([]);
         setOrders([]);
