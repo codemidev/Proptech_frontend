@@ -24,7 +24,7 @@ type Product = {
 type VendorOrder = {
   id: string; orderNumber: string; status: string; currency: string; createdAt: string;
   deliveryAddress: string | null; deliveryPhone: string | null; vendorSubtotal: string;
-  buyer: { id: string; firstName: string | null; lastName: string | null; email: string | null; phoneNumber: string | null };
+  buyer: { firstName: string | null; lastName: string | null; email: string | null; phoneNumber: string | null };
   items: { id: string; titleSnapshot: string; skuSnapshot: string | null; unitPrice: string; quantity: number; lineTotal: string }[];
   payment: { status: string; method: string; reference: string } | null;
   paymentObligations: { id: string; reference: string; amount: string; status: string; proofSubmittedAt: string | null }[];
