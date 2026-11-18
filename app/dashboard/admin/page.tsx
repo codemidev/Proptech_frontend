@@ -345,6 +345,14 @@ export default function AdminDashboard() {
               />
 
               <SidebarItem
+                icon={<BuildingIcon />}
+                label="Marketplace Vendors"
+                onClick={() => {
+                  window.location.href = "/dashboard/admin/marketplace";
+                }}
+              />
+
+              <SidebarItem
                 icon={<ActivityIcon />}
                 label="Weekly Payouts"
                 onClick={() => {

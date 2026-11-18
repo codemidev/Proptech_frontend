@@ -73,6 +73,53 @@ type InspectionsMeResponse = {
   data: Inspection[];
 };
 
+type MarketplaceOrderReceipt = {
+  id: string;
+  orderNumber: string;
+  status: string;
+  total: string | number;
+  currency: string;
+  items: Array<{
+    id: string;
+    titleSnapshot: string;
+    quantity: number;
+    lineTotal: string | number;
+    vendor: { businessName: string };
+  }>;
+};
+
+type MarketplaceOrdersResponse = {
+  success: boolean;
+  data: MarketplaceOrderReceipt[];
+};
+
+type MarketplaceServiceBookingReceipt = {
+  id: string;
+  bookingNumber: string;
+  status: string;
+  serviceTitleSnapshot: string;
+  quoteAmount: string | number | null;
+  currency: string;
+  scheduledAt: string | null;
+  vendor: { businessName: string };
+};
+type MarketplaceServiceBookingsResponse = {
+  success: boolean;
+  data: MarketplaceServiceBookingReceipt[];
+};
+
+type MarketplaceDeliveryQuoteReceipt = {
+  id:string; quoteNumber:string; status:string; quoteAmount:string|number|null;
+  trackingReference:string|null; vendorNotes:string|null;
+  order:{id:string;orderNumber:string};
+  vendor:{businessName:string};
+  serviceOffering:{title:string};
+};
+type MarketplaceDeliveryQuotesResponse = {
+  success:boolean;
+  data:MarketplaceDeliveryQuoteReceipt[];
+};
+
 function formatCurrency(amount: string, currency: string) {
   const value = Number(amount);
   const symbol = currency === "NGN" ? "₦" : currency;
@@ -120,6 +167,9 @@ function CallbackContent() {
   const [receipt, setReceipt] = useState<ReceiptPayment | null>(null);
   const [property, setProperty] = useState<PropertyResponse["data"] | null>(null);
   const [inspection, setInspection] = useState<Inspection | null>(null);
+  const [marketplaceOrder, setMarketplaceOrder] = useState<MarketplaceOrderReceipt | null>(null);
+  const [serviceBooking, setServiceBooking] = useState<MarketplaceServiceBookingReceipt | null>(null);
+  const [deliveryQuote, setDeliveryQuote] = useState<MarketplaceDeliveryQuoteReceipt | null>(null);
 
   const txRef = searchParams.get("tx_ref");
 
@@ -154,6 +204,45 @@ function CallbackContent() {
 
         if (res.data.status === "SUCCESS") {
           const propertyId = searchParams.get("propertyId");
+          const orderId = searchParams.get("orderId");
+          const bookingId = searchParams.get("bookingId");
+          const deliveryQuoteId = searchParams.get("deliveryQuoteId");
+
+          if (deliveryQuoteId) {
+            try {
+              const quotes = await apiFetch<MarketplaceDeliveryQuotesResponse>(
+                "/api/v1/marketplace/delivery-requests/me",
+                getToken,
+              );
+              setDeliveryQuote(quotes.data.find((quote) => quote.id === deliveryQuoteId) ?? null);
+            } catch {
+              setDeliveryQuote(null);
+            }
+          }
+
+          if (bookingId) {
+            try {
+              const bookings = await apiFetch<MarketplaceServiceBookingsResponse>(
+                "/api/v1/marketplace/bookings/me",
+                getToken,
+              );
+              setServiceBooking(bookings.data.find((booking) => booking.id === bookingId) ?? null);
+            } catch {
+              setServiceBooking(null);
+            }
+          }
+
+          if (orderId) {
+            try {
+              const orders = await apiFetch<MarketplaceOrdersResponse>(
+                "/api/v1/marketplace/orders/me",
+                getToken,
+              );
+              setMarketplaceOrder(orders.data.find((order) => order.id === orderId) ?? null);
+            } catch {
+              setMarketplaceOrder(null);
+            }
+          }
 
           try {
             const list = await apiFetch<PaymentsMeResponse>(
@@ -242,16 +331,83 @@ function CallbackContent() {
             )}
             {receipt?.description && (
               <div>
-                <dt className="text-[11px] text-[#667085]">Property</dt>
+                <dt className="text-[11px] text-[#667085]">{searchParams.get("orderId") ? "Marketplace purchase" : "Property"}</dt>
                 <dd className="mt-0.5 font-medium">{receipt.description}</dd>
+              </div>
+            )}
+            {marketplaceOrder && (
+              <div>
+                <dt className="text-[11px] text-[#667085]">Marketplace order</dt>
+                <dd className="mt-0.5 font-medium">{marketplaceOrder.orderNumber}</dd>
+              </div>
+            )}
+            {serviceBooking && (
+              <div>
+                <dt className="text-[11px] text-[#667085]">Service booking</dt>
+                <dd className="mt-0.5 font-medium">{serviceBooking.bookingNumber}</dd>
+              </div>
+            )}
+            {deliveryQuote && (
+              <div>
+                <dt className="text-[11px] text-[#667085]">Delivery quote</dt>
+                <dd className="mt-0.5 font-medium">{deliveryQuote.quoteNumber}</dd>
               </div>
             )}
             {!receipt && (
               <p className="text-xs text-[#667085]">
-                Your rent payment has been received.
+                {searchParams.get("orderId")
+                  ? "Your marketplace payment has been received."
+                  : "Your rent payment has been received."}
               </p>
             )}
           </dl>
+
+          {deliveryQuote && (
+            <div className={`${tenantCard} mt-4 w-full p-4 text-left`}>
+              <p className="text-[11px] text-[#667085]">Delivery fee payment</p>
+              <h2 className="mt-1 text-base font-semibold text-[#111827]">{deliveryQuote.quoteNumber}</h2>
+              <p className="mt-2 text-sm font-medium text-[#111827]">Order {deliveryQuote.order.orderNumber}</p>
+              <p className="mt-1 text-xs text-[#667085]">{deliveryQuote.vendor.businessName} · {deliveryQuote.serviceOffering.title}</p>
+              {deliveryQuote.quoteAmount!=null&&<p className="mt-3 text-sm font-bold">{formatCurrency(String(deliveryQuote.quoteAmount),"NGN")}</p>}
+              <p className="mt-2 text-xs text-[#667085]">Delivery status: {deliveryQuote.status.replaceAll("_"," ")}</p>
+              {deliveryQuote.trackingReference&&<p className="mt-1 text-xs text-[#667085]">Tracking reference: {deliveryQuote.trackingReference}</p>}
+            </div>
+          )}
+
+          {serviceBooking && (
+            <div className={`${tenantCard} mt-4 w-full p-4 text-left`}>
+              <p className="text-[11px] text-[#667085]">Service booking payment</p>
+              <h2 className="mt-1 text-base font-semibold text-[#111827]">{serviceBooking.bookingNumber}</h2>
+              <p className="mt-2 text-sm font-medium text-[#111827]">{serviceBooking.serviceTitleSnapshot}</p>
+              <p className="mt-1 text-xs text-[#667085]">Provider: {serviceBooking.vendor.businessName}</p>
+              {serviceBooking.quoteAmount != null && <p className="mt-3 text-sm font-bold">{formatCurrency(String(serviceBooking.quoteAmount), serviceBooking.currency)}</p>}
+              <p className="mt-2 text-xs text-[#667085]">Booking status: {serviceBooking.status.replaceAll("_"," ")}</p>
+              {serviceBooking.scheduledAt && <p className="mt-1 text-xs text-[#667085]">Scheduled: {formatDateTime(serviceBooking.scheduledAt)}</p>}
+            </div>
+          )}
+
+          {marketplaceOrder && (
+            <div className={`${tenantCard} mt-4 w-full p-4 text-left`}>
+              <p className="text-[11px] text-[#667085]">Marketplace order</p>
+              <h2 className="mt-1 text-base font-semibold text-[#111827]">{marketplaceOrder.orderNumber}</h2>
+              <div className="mt-3 space-y-2">
+                {marketplaceOrder.items.map((item) => (
+                  <div key={item.id} className="flex items-start justify-between gap-3 text-sm">
+                    <div>
+                      <p className="font-medium text-[#111827]">{item.titleSnapshot}</p>
+                      <p className="text-xs text-[#667085]">{item.vendor.businessName} · Qty {item.quantity}</p>
+                    </div>
+                    <span className="font-medium">{formatCurrency(String(item.lineTotal), marketplaceOrder.currency)}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-sm">
+                <span className="font-semibold">Order total</span>
+                <span className="font-bold">{formatCurrency(String(marketplaceOrder.total), marketplaceOrder.currency)}</span>
+              </div>
+              <p className="mt-2 text-xs text-[#667085]">Order status: {marketplaceOrder.status.replaceAll("_", " ")}</p>
+            </div>
+          )}
 
           {property && (
             <div className={`${tenantCard} mt-4 w-full overflow-hidden text-left`}>
@@ -343,6 +499,21 @@ function CallbackContent() {
                 className={tenantBtn("primary")}
               >
                 View Inspection
+              </Link>
+            )}
+            {marketplaceOrder && (
+              <Link href="/marketplace" className={tenantBtn("primary")}>
+                Return to Marketplace
+              </Link>
+            )}
+            {serviceBooking && (
+              <Link href="/marketplace" className={tenantBtn("primary")}>
+                Return to Marketplace
+              </Link>
+            )}
+            {deliveryQuote && (
+              <Link href="/marketplace" className={tenantBtn("primary")}>
+                Return to Marketplace
               </Link>
             )}
             <Link href="/dashboard/tenant" className={tenantBtn("outline")}>
