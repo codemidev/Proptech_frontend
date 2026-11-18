@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useAuth } from "@clerk/nextjs";
 import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, BadgeCheck, Boxes, Building2, LoaderCircle, Plus, RefreshCw, Save } from "lucide-react";
+import { ArrowLeft, BadgeCheck, Building2, LoaderCircle, Plus, RefreshCw, Save } from "lucide-react";
 import { apiFetch, resolveMediaUrl } from "@/lib/api";
 
 type Api<T> = { success: boolean; data: T; message?: string };
