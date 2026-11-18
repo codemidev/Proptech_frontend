@@ -48,12 +48,6 @@ export default function MarketplacePage() {
     setCart(result.data);
   }, [getToken, isSignedIn]);
 
-  const loadOrders = useCallback(async () => {
-    if (!isSignedIn) { setOrders([]); return; }
-    const result = await apiFetch<ApiResult<Order[]>>("/api/v1/marketplace/orders/me", getToken);
-    setOrders(result.data);
-  }, [getToken, isSignedIn]);
-
   useEffect(() => {
     if (!isLoaded) return;
     let active = true;
