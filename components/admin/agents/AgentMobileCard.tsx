@@ -12,7 +12,7 @@ export function AgentMobileCard({ agent, onManage }: { agent: AdminAgent; onMana
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-sm font-bold text-slate-700">{agentDisplayName(agent).charAt(0).toUpperCase()}</div>
           <div className="min-w-0">
             <p className="font-semibold text-slate-900">{agentDisplayName(agent)}</p>
-            <p className="truncate text-sm text-slate-500">{agent.email}</p>
+            <p className="truncate text-sm text-slate-500">{agent.email}</p><p className="mt-1 break-all text-xs font-semibold text-[#1A3C6E]">{agent.fieldId ? `Field ID: ${agent.fieldId}` : "Field ID: Not issued yet"}</p>
           </div>
         </div>
         <button type="button" onClick={() => onManage(agent)} className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-slate-200 px-2.5 py-2 text-xs font-semibold text-slate-700">Manage <ChevronRight size={14} /></button>
