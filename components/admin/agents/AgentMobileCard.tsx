@@ -20,7 +20,7 @@ export function AgentMobileCard({ agent, onManage }: { agent: AdminAgent; onMana
       <div className="mt-4 flex flex-wrap gap-2">
         <AgentStatusBadge status={agent.status} />
         <AgentTierBadge tier={agent.agentClearanceTier} />
-        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${agent.isVerified ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{agent.isVerified ? "Verified" : "Not verified"}</span>
+        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${agent.isVerified ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{agent.isVerified ? "KYC verified" : "KYC pending"}</span><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${agent.siteIdentityPhotoCapturedAt ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{agent.siteIdentityPhotoCapturedAt ? "Onsite Face ID captured" : "Face ID not captured"}</span>
       </div>
     </div>
   );
