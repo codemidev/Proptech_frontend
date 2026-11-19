@@ -1,6 +1,9 @@
 "use client";
 
-import { X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useAuth } from "@clerk/nextjs";
+import { X, Printer, RefreshCw } from "lucide-react";
+import { apiFetch } from "@/lib/api";
 import type { AdminAgent } from "@/lib/agent-governance";
 import { agentDisplayName } from "@/lib/agent-governance";
 import { AgentStatusBadge } from "./AgentStatusBadge";
@@ -25,6 +28,75 @@ export function AgentDetailsDrawer({
   onSuspend: () => void;
   onReactivate: () => void;
 }) {
+  const { getToken } = useAuth();
+  const [identityCard, setIdentityCard] = useState<{
+    agent: {
+      firstName: string | null;
+      lastName: string | null;
+      phoneNumber: string | null;
+      siteIdentityPhotoUrl: string;
+      clearanceTier: string | null;
+      status: string;
+      isActive: boolean;
+      isVerified: boolean;
+    };
+    credentialCode: string;
+    qrPayload: string;
+    issuedAt: string;
+  } | null>(null);
+  const [identityLoading, setIdentityLoading] = useState(false);
+  const [identityError, setIdentityError] = useState("");
+
+  useEffect(() => {
+    if (!open || !agent) {
+      setIdentityCard(null);
+      setIdentityError("");
+      return;
+    }
+    let active = true;
+    setIdentityLoading(true);
+    setIdentityError("");
+    apiFetch<{ success: boolean; data: NonNullable<typeof identityCard> }>(
+      `/api/v1/admin/dashboard/agents/${encodeURIComponent(agent.id)}/site-identity-card`,
+      getToken,
+    ).then((result) => {
+      if (active) setIdentityCard(result.data);
+    }).catch((error) => {
+      if (active) {
+        setIdentityCard(null);
+        setIdentityError(error instanceof Error ? error.message : "Site identity card is not available yet.");
+      }
+    }).finally(() => {
+      if (active) setIdentityLoading(false);
+    });
+    return () => { active = false; };
+  }, [open, agent?.id, getToken]);
+
+  function printIdentityCard() {
+    if (!identityCard) return;
+    const popup = window.open("", "_blank", "width=820,height=640");
+    if (!popup) {
+      setIdentityError("Allow pop-ups to print or save the Agent ID card.");
+      return;
+    }
+    const escape = (value: string) => value.replace(/[&<>"']/g, (char) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    })[char] || char);
+    const name = escape([identityCard.agent.firstName, identityCard.agent.lastName].filter(Boolean).join(" ") || "Aviritech Agent");
+    const photo = escape(identityCard.agent.siteIdentityPhotoUrl);
+    const qr = "https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=10&data=" + encodeURIComponent(identityCard.qrPayload);
+    popup.document.write(`<!doctype html><html><head><title>Aviritech Agent ID - ${name}</title><style>
+      @page{size:A5 landscape;margin:12mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#102b4e;margin:0}
+      .card{border:2px solid #1A3C6E;border-radius:18px;overflow:hidden;max-width:760px;margin:20px auto}
+      header{background:#1A3C6E;color:#fff;padding:18px 24px;font-weight:700;font-size:20px}
+      main{display:flex;align-items:center;gap:24px;padding:24px}.photo{width:150px;height:150px;border-radius:14px;object-fit:cover;border:2px solid #FACC15}
+      .qr{width:170px;height:170px;object-fit:contain;margin-left:auto}.name{font-size:24px;font-weight:700;margin-bottom:8px}
+      .meta{font-size:13px;line-height:1.8;color:#475569}.foot{background:#f8fafc;border-top:1px solid #e2e8f0;padding:12px 24px;font-size:11px;color:#475569}
+      @media print{body{margin:0}.card{margin:0;max-width:none}}
+    </style></head><body><article class="card"><header>AVIRITECH PROPTECH · AGENT SITE IDENTITY</header><main><img class="photo" src="${photo}" alt="Agent selfie"><div><div class="name">${name}</div><div class="meta">Agent ID: ${escape(agent?.id || "")}<br>Phone: ${escape(identityCard.agent.phoneNumber || "Not provided")}<br>Clearance: ${escape(identityCard.agent.clearanceTier || "Pending")}<br>Status: ${escape(identityCard.agent.isActive ? (identityCard.agent.isVerified ? "Verified" : "Pending verification") : "Inactive")}<br>Issued: ${escape(new Date(identityCard.issuedAt).toLocaleDateString())}</div></div><img class="qr" src="${qr}" alt="Permanent agent QR code"></main><div class="foot">This QR identifies the agent permanently. Each property visit is verified against the current server-side inspection assignment.</div></article><script>window.onload=()=>window.print()</script></body></html>`);
+    popup.document.close();
+  }
+
   if (!open || !agent) return null;
 
   const canApprove =

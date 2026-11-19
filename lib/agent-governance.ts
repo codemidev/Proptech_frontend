@@ -41,6 +41,10 @@ export type AdminAgent = {
   isActive: boolean;
   agentClearanceTier: AgentClearanceTier | null;
   updatedAt?: string | null;
+  createdAt?: string | null;
+  avatar?: string | null;
+  phoneNumber?: string | null;
+  gender?: string | null;
   organization?: {
     id?: string | null;
     name?: string | null;
