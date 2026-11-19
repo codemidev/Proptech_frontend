@@ -1407,7 +1407,7 @@ if (!isSignedIn) {
             aria-labelledby="agent-field-id-title"
           >
             <section className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
-              <header className="bg-[#1A3C6E] px-6 py-5 text-white">
+              <header className="bg-[#111111] border-b border-[#FACC15]/40 px-6 py-5 text-white">
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#FACC15]">Aviritech Agent Network</p>
                 <h2 id="agent-field-id-title" className="mt-2 text-xl font-bold">Register your Agent Field ID</h2>
                 <p className="mt-1 text-sm text-white/80">Every field agent must have an active, unique Aviritech Field ID before accessing field operations.</p>
@@ -1429,7 +1429,7 @@ if (!isSignedIn) {
                 ) : (
                   <Link
                     href="/agent/site-identity"
-                    className="block w-full rounded-xl bg-[#1A3C6E] px-4 py-3 text-center text-sm font-bold text-white hover:bg-[#15325d]"
+                    className="block w-full rounded-xl bg-[#FACC15] px-4 py-3 text-center text-sm font-bold text-[#111111] hover:bg-[#eabf0b]"
                   >
                     Register my Field ID
                   </Link>
@@ -2192,6 +2192,7 @@ if (!isSignedIn) {
               ["Inspections", "#inspections"],
               ["Move-in / Handover", "/dashboard/agent/move-in"],
               ["Account", "#account"],
+              ["My Site ID", "/agent/passport"],
             ].map(([label, href]) => (
               <a
                 key={href}
@@ -2802,7 +2803,12 @@ if (!isSignedIn) {
           >
                         {/* AGENT_TIER_GOVERNANCE_CARD_V1 */}
                         <AgentClearanceStatusCard />
-                        <AgentVerificationIdCard />\n                        <div className="mt-3 flex justify-end"><Link href="/agent/passport" className="inline-flex items-center rounded-lg border border-[#1A3C6E]/20 px-4 py-2 text-xs font-bold text-[#1A3C6E] hover:bg-slate-50">Open my Agent passport →</Link></div>
+            <AgentVerificationIdCard />
+            <div className="mt-3 flex justify-end">
+              <Link href="/agent/passport" className="inline-flex items-center rounded-lg border border-[#1A3C6E]/20 px-4 py-2 text-xs font-bold text-[#1A3C6E] hover:bg-slate-50">
+                Open my Agent passport
+              </Link>
+            </div>
 
             <div className="mt-6 border-t border-slate-100 pt-5 flex items-start justify-between gap-4">
               <div>
