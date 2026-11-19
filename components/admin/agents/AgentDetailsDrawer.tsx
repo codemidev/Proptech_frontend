@@ -35,6 +35,7 @@ export function AgentDetailsDrawer({
       lastName: string | null;
       phoneNumber: string | null;
       siteIdentityPhotoUrl: string;
+      siteIdentityPhotoCapturedAt: string | null;
       clearanceTier: string | null;
       status: string;
       isActive: boolean;
@@ -129,7 +130,7 @@ export function AgentDetailsDrawer({
           </div>
           <section className="rounded-2xl border border-[#1A3C6E]/15 bg-white p-4 shadow-sm">
             <div className="flex items-center justify-between gap-3">
-              <div><h3 className="text-sm font-bold text-[#1A3C6E]">Permanent Agent site identity card</h3><p className="mt-1 text-xs text-slate-500">Live selfie and reusable QR identity</p></div>
+              <div><h3 className="text-sm font-bold text-[#1A3C6E]">Onsite Face ID verification</h3><p className="mt-1 text-xs text-slate-500">Agent selfie captured onsite · permanent Site ID</p></div>
               <button type="button" onClick={() => {
                 if (!agent) return;
                 setIdentityLoading(true);
@@ -150,43 +151,7 @@ export function AgentDetailsDrawer({
                   <div className="grid gap-4 p-4 sm:grid-cols-[1fr_auto] sm:items-center">
                     <div className="flex items-center gap-3">
                       <img src={identityCard.agent.siteIdentityPhotoUrl} alt="Agent site identity selfie" className="h-20 w-20 rounded-xl border-2 border-[#FACC15] object-cover" />
-                      <div className="min-w-0"><p className="font-bold text-slate-900">{agentDisplayName(agent)}</p><p className="mt-1 text-xs text-slate-500">{identityCard.agent.phoneNumber || "Phone not provided"}</p><p className="mt-2 text-[10px] font-semibold uppercase text-emerald-700">{identityCard.agent.isVerified ? "KYC verified" : "Verification pending"}</p></div>
-                    </div>
-                    <div className="flex flex-col items-center rounded-lg bg-slate-50 p-2">
-                      <img src={"https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=8&data=" + encodeURIComponent(identityCard.qrPayload)} alt="Permanent Agent QR code" className="h-28 w-28" />
-                      <span className="mt-1 text-[10px] font-mono text-slate-500">{identityCard.credentialCode.slice(0, 12)}…</span>
-                    </div>
-                  </div>
-                  <p className="border-t border-slate-100 bg-slate-50 px-4 py-2 text-[11px] text-slate-500">QR identity is permanent and reusable. Property assignment is checked dynamically when a customer scans it.</p>
-                </div>
-                <button type="button" onClick={printIdentityCard} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#FACC15] px-4 py-3 text-sm font-bold text-[#1A3C6E] hover:bg-yellow-300"><Printer size={16} /> Print / Download Agent ID</button>
-              </>
-            )}
-          </section>
-          <section className="rounded-2xl border border-[#1A3C6E]/15 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between gap-3">
-              <div><h3 className="text-sm font-bold text-[#1A3C6E]">Permanent Agent site identity card</h3><p className="mt-1 text-xs text-slate-500">Live selfie and reusable QR identity</p></div>
-              <button type="button" onClick={() => {
-                if (!agent) return;
-                setIdentityLoading(true);
-                apiFetch<{ success: boolean; data: NonNullable<typeof identityCard> }>(
-                  `/api/v1/admin/dashboard/agents/${encodeURIComponent(agent.id)}/site-identity-card`,
-                  getToken,
-                ).then((result) => { setIdentityCard(result.data); setIdentityError(""); })
-                  .catch((error) => setIdentityError(error instanceof Error ? error.message : "Unable to refresh the identity card."))
-                  .finally(() => setIdentityLoading(false));
-              }} disabled={identityLoading} aria-label="Refresh Agent ID card" className="rounded-lg border border-slate-200 p-2 text-slate-600 disabled:opacity-50"><RefreshCw size={15} className={identityLoading ? "animate-spin" : ""} /></button>
-            </div>
-            {identityLoading && <p className="mt-4 text-sm text-slate-500">Loading site identity card…</p>}
-            {!identityLoading && identityError && <p role="status" className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{identityError}</p>}
-            {!identityLoading && identityCard && (
-              <>
-                <div className="mt-4 overflow-hidden rounded-xl border border-slate-200">
-                  <div className="bg-[#1A3C6E] px-4 py-3 text-sm font-bold text-white">AVIRITECH PROPTECH · AGENT ID</div>
-                  <div className="grid gap-4 p-4 sm:grid-cols-[1fr_auto] sm:items-center">
-                    <div className="flex items-center gap-3">
-                      <img src={identityCard.agent.siteIdentityPhotoUrl} alt="Agent site identity selfie" className="h-20 w-20 rounded-xl border-2 border-[#FACC15] object-cover" />
-                      <div className="min-w-0"><p className="font-bold text-slate-900">{agentDisplayName(agent)}</p><p className="mt-1 text-xs text-slate-500">{identityCard.agent.phoneNumber || "Phone not provided"}</p><p className="mt-2 text-[10px] font-semibold uppercase text-emerald-700">{identityCard.agent.isVerified ? "KYC verified" : "Verification pending"}</p></div>
+                      <div className="min-w-0"><p className="font-bold text-slate-900">{agentDisplayName(agent)}</p><p className="mt-1 text-xs text-slate-500">{identityCard.agent.phoneNumber || "Phone not provided"}</p><p className="mt-2 text-[10px] font-semibold uppercase text-emerald-700">KYC: {identityCard.agent.isVerified ? "Approved" : "Pending"}</p><p className="mt-1 text-[10px] text-slate-500">Face ID captured: {identityCard.agent.siteIdentityPhotoCapturedAt ? new Date(identityCard.agent.siteIdentityPhotoCapturedAt).toLocaleString() : "Date unavailable"}</p></div>
                     </div>
                     <div className="flex flex-col items-center rounded-lg bg-slate-50 p-2">
                       <img src={"https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=8&data=" + encodeURIComponent(identityCard.qrPayload)} alt="Permanent Agent QR code" className="h-28 w-28" />
