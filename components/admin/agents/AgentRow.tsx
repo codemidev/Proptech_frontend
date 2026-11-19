@@ -20,7 +20,7 @@ export function AgentRow({ agent, onManage }: { agent: AdminAgent; onManage: (ag
         </div>
       </td>
       <td className="px-5 py-4"><AgentStatusBadge status={agent.status} /></td>
-      <td className="px-5 py-4"><span className={`text-xs font-semibold ${agent.isVerified ? "text-emerald-700" : "text-amber-700"}`}>{agent.isVerified ? "Verified" : "Not verified"}</span></td>
+      <td className="px-5 py-4"><div className="flex flex-col items-start gap-1.5"><span className={`text-xs font-semibold ${agent.isVerified ? "text-emerald-700" : "text-amber-700"}`}>{agent.isVerified ? "KYC verified" : "KYC pending"}</span><span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${agent.siteIdentityPhotoCapturedAt ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{agent.siteIdentityPhotoCapturedAt ? "Onsite Face ID captured" : "Onsite Face ID not captured"}</span></div></td>
       <td className="px-5 py-4"><AgentTierBadge tier={agent.agentClearanceTier} /></td>
       <td className="px-5 py-4"><p className="max-w-[180px] truncate text-sm font-medium text-slate-800">{agent.organization?.name || agent.organization?.slug || "Current organization"}</p></td>
       <td className="px-5 py-4 text-right">
