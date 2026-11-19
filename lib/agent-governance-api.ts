@@ -30,6 +30,7 @@ function normalizeAgent(value: unknown): AdminAgent | null {
     status: typeof item.status === "string" ? item.status : "ACTIVE",
     isVerified: typeof item.isVerified === "boolean" ? item.isVerified : false,
     isActive: typeof item.isActive === "boolean" ? item.isActive : true,
+    siteIdentityPhotoCapturedAt: typeof item.siteIdentityPhotoCapturedAt === "string" ? item.siteIdentityPhotoCapturedAt : null,
     agentClearanceTier: tier,
     updatedAt: typeof item.updatedAt === "string" ? item.updatedAt : null,
     createdAt: typeof item.createdAt === "string" ? item.createdAt : null,
