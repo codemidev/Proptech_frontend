@@ -32,6 +32,7 @@ export type Pagination = {
 
 export type AdminAgent = {
   id: string;
+  fieldId?: string | null;
   clerkId?: string | null;
   email: string;
   firstName: string | null;
