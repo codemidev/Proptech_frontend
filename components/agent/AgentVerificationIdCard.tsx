@@ -13,7 +13,7 @@ type AgentCardData = {
     phoneNumber: string | null;
     avatar: string | null;
     siteIdentityPhotoUrl?: string | null;
-    clearanceTier: string | null;
+    clearanceTier: string | null;\n    verificationStatus?: "KYC_APPROVED" | "KYC_PENDING";
   };
   credentialCode: string;
   qrPayload: string;
@@ -53,12 +53,12 @@ export function AgentVerificationIdCard() {
     <section id="agent-field-id-card" className="mt-5 overflow-hidden rounded-2xl border border-[#1A3C6E]/15 bg-white shadow-sm print:mt-0 print:rounded-none print:border-2 print:border-[#1A3C6E] print:shadow-none">
       <div className="flex items-center justify-between gap-3 bg-[#1A3C6E] px-5 py-4 text-white">
         <div className="flex items-center gap-2"><ShieldCheck size={19} /><div><p className="text-sm font-bold">Aviritech Verified Agent ID</p><p className="text-[10px] text-white/70">Digital inspection identity card</p></div></div>
-        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/15 px-2.5 py-1 text-[10px] font-bold text-emerald-200"><BadgeCheck size={13} /> VERIFIED</span>
+        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold ${data.agent.verificationStatus === "KYC_APPROVED" ? "bg-emerald-400/15 text-emerald-200" : "bg-amber-300/20 text-amber-100"}`}><BadgeCheck size={13} /> {data.agent.verificationStatus === "KYC_APPROVED" ? "KYC APPROVED" : "FIELD ID ACTIVE · KYC PENDING"}</span>
       </div>
       <div className="grid gap-4 p-4 sm:grid-cols-[1fr_auto] sm:items-center sm:p-5">
         <div className="flex min-w-0 items-center gap-3">
           {(data.agent.siteIdentityPhotoUrl || data.agent.avatar) ? <img src={resolveMediaUrl(data.agent.siteIdentityPhotoUrl || data.agent.avatar)} alt={fullName} className="h-16 w-16 rounded-xl border border-slate-200 object-cover" /> : <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-slate-100 text-2xl font-bold text-[#1A3C6E]">{fullName.slice(0,1)}</div>}
-          <div className="min-w-0"><p className="text-base font-bold text-slate-950">{fullName}</p><p className="mt-1 text-xs text-slate-500">{data.agent.phoneNumber || "Aviritech Agent"}</p><p className="mt-2 break-all font-mono text-sm font-bold tracking-wide text-[#1A3C6E]">{data.credentialCode}</p><p className="mt-2 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">KYC cleared · {data.agent.clearanceTier?.replaceAll("_"," ") || "Verified agent"}</p></div>
+          <div className="min-w-0"><p className="text-base font-bold text-slate-950">{fullName}</p><p className="mt-1 text-xs text-slate-500">{data.agent.phoneNumber || "Aviritech Agent"}</p><p className="mt-2 break-all font-mono text-sm font-bold tracking-wide text-[#1A3C6E]">{data.credentialCode}</p><p className="mt-2 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">{data.agent.verificationStatus === "KYC_APPROVED" ? "KYC approved" : "Identity captured · KYC review pending"} · {data.agent.clearanceTier?.replaceAll("_"," ") || "Clearance pending"}</p></div>
         </div>
         <div className="flex flex-col items-center rounded-xl border border-slate-100 bg-white p-2">
           <img src={qrImage} alt="Aviritech agent verification QR code" width={156} height={156} className="h-36 w-36 object-contain" />
