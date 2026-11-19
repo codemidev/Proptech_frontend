@@ -12,7 +12,7 @@ export function AgentAuditRow({ log, onSelect }: { log: AgentAuditRecord; onSele
   return (
     <tr onClick={() => onSelect(log)} className="cursor-pointer border-b border-slate-100 hover:bg-slate-50 last:border-0">
       <td className="px-5 py-4 text-sm text-slate-500">{new Date(log.createdAt).toLocaleString()}</td>
-      <td className="px-5 py-4"><p className="font-semibold text-slate-900">{targetName(log)}</p><p className="text-xs text-slate-400">{log.entityId}</p></td>
+      <td className="px-5 py-4"><p className="font-semibold text-slate-900">{targetName(log)}</p><p className="mt-1 text-xs font-semibold text-[#1A3C6E]">{log.agent?.fieldId ? `Field ID: ${log.agent.fieldId}` : "Field ID: Not issued yet"}</p><p className="text-[10px] text-slate-400">Record: {log.entityId}</p></td>
       <td className="px-5 py-4"><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">{action}</span></td>
       <td className="max-w-[340px] px-5 py-4 text-sm text-slate-500">{log.description || "—"}</td>
       <td className="px-5 py-4 text-sm text-slate-700">{actorName(log)}</td>
