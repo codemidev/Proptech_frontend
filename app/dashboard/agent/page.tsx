@@ -439,6 +439,9 @@ export default function AgentDashboard() {
   const inspectionsPerPage = 10;
   const [landVaults, setLandVaults] = useState<LandVault[]>([]);
   const [agentProfile, setAgentProfile] = useState<AgentProfile | null>(null);
+  const [fieldIdRequired, setFieldIdRequired] = useState(false);
+  const [fieldIdCheckComplete, setFieldIdCheckComplete] = useState(false);
+  const [fieldIdCheckError, setFieldIdCheckError] = useState("");
   const [agentProperties, setAgentProperties] = useState<AgentProperty[]>([]);
   const [referralCode, setReferralCode] = useState<string | null>(null);
   const [referralError, setReferralError] = useState("");
@@ -1112,6 +1115,34 @@ export default function AgentDashboard() {
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn) return;
+    let active = true;
+    apiFetch<{
+      success: boolean;
+      data: { credentialCode?: string | null; credentialRevoked?: boolean };
+    }>("/api/v1/agents/me/site-identity", getToken)
+      .then((response) => {
+        if (!active) return;
+        const hasActiveFieldId = Boolean(response.data?.credentialCode?.trim()) && !response.data?.credentialRevoked;
+        setFieldIdRequired(!hasActiveFieldId);
+        setFieldIdCheckError(response.data?.credentialRevoked
+          ? "Your Field ID has been revoked. Contact an Aviritech administrator."
+          : "");
+      })
+      .catch((cause) => {
+        if (!active) return;
+        setFieldIdRequired(true);
+        setFieldIdCheckError(cause instanceof Error ? cause.message : "Unable to verify your Field ID registration.");
+      })
+      .finally(() => {
+        if (active) setFieldIdCheckComplete(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [isLoaded, isSignedIn, getToken]);
+
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn) return;
     void loadPayoutInfo();
   }, [isLoaded, isSignedIn, getToken]);
 
@@ -1367,6 +1398,41 @@ if (!isSignedIn) {
 
   return (
     <main className="agent-dashboard min-h-screen bg-[#f7f7f5] text-slate-900">
+
+        {fieldIdCheckComplete && fieldIdRequired && (
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="agent-field-id-title"
+          >
+            <section className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
+              <header className="bg-[#1A3C6E] px-6 py-5 text-white">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#FACC15]">Aviritech Agent Network</p>
+                <h2 id="agent-field-id-title" className="mt-2 text-xl font-bold">Register your Agent Field ID</h2>
+                <p className="mt-1 text-sm text-white/80">Every field agent must have an active, unique Aviritech Field ID before accessing field operations.</p>
+              </header>
+              <div className="space-y-4 p-6">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-sm font-semibold text-slate-900">Secure live selfie registration</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-600">Capture your site identity selfie using your device camera. Aviritech will issue your permanent Field ID and QR identity card after registration.</p>
+                </div>
+                {fieldIdCheckError && (
+                  <p role="alert" className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                    {fieldIdCheckError}
+                  </p>
+                )}
+                <Link
+                  href="/agent/site-identity"
+                  className="block w-full rounded-xl bg-[#1A3C6E] px-4 py-3 text-center text-sm font-bold text-white hover:bg-[#15325d]"
+                >
+                  {fieldIdCheckError.includes("revoked") ? "Contact administrator" : "Register my Field ID"}
+                </Link>
+                <p className="text-center text-xs text-slate-500">Field ID registration is mandatory. This prompt will clear after your identity has been registered successfully.</p>
+              </div>
+            </section>
+          </div>
+        )}
 
         {showCreateOwner && (
           <div
