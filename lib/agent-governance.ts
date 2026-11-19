@@ -104,6 +104,7 @@ export type AgentAuditRecord = {
     email: string;
     agentClearanceTier: AgentClearanceTier | null;
     status: string;
+    fieldId?: string | null;
   } | null;
 };
 
