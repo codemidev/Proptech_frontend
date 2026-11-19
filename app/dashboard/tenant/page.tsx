@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { apiFetch, resolveMediaUrl } from "@/lib/api";
 import { LoadingScreen } from "@/components/shell/LoadingScreen";
+import { TenantWelcomeModal } from "@/components/tenant/TenantWelcomeModal";
 import { tenantBtn, tenantCard } from "@/components/tenant/ui";
 
 type MeResponse = {
@@ -94,12 +95,13 @@ function formatCurrency(amount: string, currency: string) {
 }
 
 export default function TenantDashboard() {
-  const { isLoaded, isSignedIn, getToken } = useAuth();
+  const { isLoaded, isSignedIn, getToken, userId } = useAuth();
   const { signOut } = useClerk();
   const router = useRouter();
 
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [welcomeOpen, setWelcomeOpen] = useState(false);
 
   const handleSignOut = async () => {
     setProfileMenuOpen(false);
@@ -143,6 +145,31 @@ export default function TenantDashboard() {
 
     loadDashboard();
   }, [isLoaded, isSignedIn, getToken, router]);
+
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn || !userId) return;
+
+    // Version the key so every tenant receives the upgraded interactive welcome once.
+    const storageKey = `aviritech:tenant-welcome:v2:${userId}`;
+    try {
+      if (window.localStorage.getItem(storageKey) !== "dismissed") {
+        setWelcomeOpen(true);
+      }
+    } catch {
+      setWelcomeOpen(true);
+    }
+  }, [isLoaded, isSignedIn, userId]);
+
+  const dismissWelcome = () => {
+    if (userId) {
+      try {
+        window.localStorage.setItem(`aviritech:tenant-welcome:v2:${userId}`, "dismissed");
+      } catch {
+        // The welcome can still be dismissed when browser storage is unavailable.
+      }
+    }
+    setWelcomeOpen(false);
+  };
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn) return;
@@ -250,14 +277,26 @@ export default function TenantDashboard() {
   }, [isLoaded, isSignedIn, getToken, search, listingType, propertiesReloadKey]);
 
   if (!isLoaded || loading) {
-    return <LoadingScreen message="Loading your dashboard..." />;
+    return (
+      <>
+        {welcomeOpen && (
+          <TenantWelcomeModal firstName={me?.firstName} onDismiss={dismissWelcome} />
+        )}
+        <LoadingScreen message="Loading your dashboard..." />
+      </>
+    );
   }
 
   if (error) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-gray-50 p-6">
-        <p className="text-center text-status-danger-fg">{error}</p>
-      </main>
+      <>
+        {welcomeOpen && (
+          <TenantWelcomeModal firstName={me?.firstName} onDismiss={dismissWelcome} />
+        )}
+        <main className="flex min-h-screen items-center justify-center bg-gray-50 p-6">
+          <p className="text-center text-status-danger-fg">{error}</p>
+        </main>
+      </>
     );
   }
 
@@ -265,6 +304,9 @@ export default function TenantDashboard() {
 
   return (
     <main className="mx-auto max-w-lg px-5 pb-8 pt-6">
+      {welcomeOpen && (
+        <TenantWelcomeModal firstName={me?.firstName} onDismiss={dismissWelcome} />
+      )}
       {/* Welcome header */}
       <header className="flex items-center justify-between gap-3">
         <h1 className="min-w-0 truncate text-2xl font-normal text-[#111827]">
