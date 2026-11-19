@@ -1422,12 +1422,18 @@ if (!isSignedIn) {
                     {fieldIdCheckError}
                   </p>
                 )}
-                <Link
-                  href="/agent/site-identity"
-                  className="block w-full rounded-xl bg-[#1A3C6E] px-4 py-3 text-center text-sm font-bold text-white hover:bg-[#15325d]"
-                >
-                  {fieldIdCheckError.includes("revoked") ? "Contact administrator" : "Register my Field ID"}
-                </Link>
+                {fieldIdCheckError.includes("revoked") ? (
+                  <p className="rounded-xl bg-slate-100 px-4 py-3 text-center text-sm font-semibold text-slate-700">
+                    Your Field ID is disabled. Contact your Aviritech administrator to review it.
+                  </p>
+                ) : (
+                  <Link
+                    href="/agent/site-identity"
+                    className="block w-full rounded-xl bg-[#1A3C6E] px-4 py-3 text-center text-sm font-bold text-white hover:bg-[#15325d]"
+                  >
+                    Register my Field ID
+                  </Link>
+                )}
                 <p className="text-center text-xs text-slate-500">Field ID registration is mandatory. This prompt will clear after your identity has been registered successfully.</p>
               </div>
             </section>
