@@ -2802,7 +2802,7 @@ if (!isSignedIn) {
           >
                         {/* AGENT_TIER_GOVERNANCE_CARD_V1 */}
                         <AgentClearanceStatusCard />
-                        <AgentVerificationIdCard />
+                        <AgentVerificationIdCard />\n                        <div className="mt-3 flex justify-end"><Link href="/agent/passport" className="inline-flex items-center rounded-lg border border-[#1A3C6E]/20 px-4 py-2 text-xs font-bold text-[#1A3C6E] hover:bg-slate-50">Open my Agent passport →</Link></div>
 
             <div className="mt-6 border-t border-slate-100 pt-5 flex items-start justify-between gap-4">
               <div>
