@@ -83,7 +83,7 @@ export default function ProvisionPage() {
       sessionStorage.removeItem("signup_role");
       sessionStorage.removeItem("signup_referral_code");
 
-      router.replace("/dashboard");
+      router.replace(selectedRole === "AGENT" ? "/agent/site-identity" : "/dashboard");
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Unable to create your application account",

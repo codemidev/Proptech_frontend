@@ -12,6 +12,7 @@ type AgentCardData = {
     lastName: string | null;
     phoneNumber: string | null;
     avatar: string | null;
+    siteIdentityPhotoUrl?: string | null;
     clearanceTier: string | null;
   };
   credentialCode: string;
@@ -56,7 +57,7 @@ export function AgentVerificationIdCard() {
       </div>
       <div className="grid gap-4 p-4 sm:grid-cols-[1fr_auto] sm:items-center sm:p-5">
         <div className="flex min-w-0 items-center gap-3">
-          {data.agent.avatar ? <img src={resolveMediaUrl(data.agent.avatar)} alt={fullName} className="h-16 w-16 rounded-xl border border-slate-200 object-cover" /> : <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-slate-100 text-2xl font-bold text-[#1A3C6E]">{fullName.slice(0,1)}</div>}
+          {(data.agent.siteIdentityPhotoUrl || data.agent.avatar) ? <img src={resolveMediaUrl(data.agent.siteIdentityPhotoUrl || data.agent.avatar)} alt={fullName} className="h-16 w-16 rounded-xl border border-slate-200 object-cover" /> : <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-slate-100 text-2xl font-bold text-[#1A3C6E]">{fullName.slice(0,1)}</div>}
           <div className="min-w-0"><p className="text-base font-bold text-slate-950">{fullName}</p><p className="mt-1 text-xs text-slate-500">{data.agent.phoneNumber || "Aviritech Agent"}</p><p className="mt-2 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">KYC cleared · {data.agent.clearanceTier?.replaceAll("_"," ") || "Verified agent"}</p></div>
         </div>
         <div className="flex flex-col items-center rounded-xl border border-slate-100 bg-white p-2">

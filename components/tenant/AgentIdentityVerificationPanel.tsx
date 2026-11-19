@@ -21,6 +21,7 @@ type VerificationResponse = {
     verified: boolean;
     expiresAt: string;
     agent: VerifiedAgent;
+    inspection: { id: string; propertyTitle: string; scheduledAt: string | null };
     message: string;
   };
 };
@@ -49,6 +50,7 @@ export function AgentIdentityVerificationPanel({
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [agent, setAgent] = useState<VerifiedAgent | null>(null);
+  const [inspectionInfo, setInspectionInfo] = useState<VerificationResponse["data"]["inspection"] | null>(null);
   const [reporting, setReporting] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
 
@@ -92,11 +94,13 @@ export function AgentIdentityVerificationPanel({
         throw new Error("The agent could not be verified for this inspection.");
       }
       setAgent(response.data.agent);
+      setInspectionInfo(response.data.inspection);
       setMessage(response.data.message);
       setConfirmed(false);
       stopCamera();
     } catch (err) {
       setAgent(null);
+      setInspectionInfo(null);
       onRevoked();
       setError(err instanceof Error
         ? err.message
@@ -111,6 +115,7 @@ export function AgentIdentityVerificationPanel({
     setError("");
     setMessage("");
     setAgent(null);
+    setInspectionInfo(null);
     setConfirmed(false);
     try {
       if (!navigator.mediaDevices?.getUserMedia) {
@@ -170,6 +175,7 @@ export function AgentIdentityVerificationPanel({
         { method: "POST" },
       );
       setAgent(null);
+      setInspectionInfo(null);
       setConfirmed(false);
       onRevoked();
       setMessage(response.message || "Identity mismatch reported to Aviritech Admin and Super Admin.");
@@ -237,6 +243,12 @@ export function AgentIdentityVerificationPanel({
                 <p className="mt-0.5 text-xs text-slate-600">{agent.phoneNumber || "Phone number not available"}</p>
                 <p className="mt-1 text-[11px] font-semibold text-emerald-800">Aviritech KYC verified · {agent.clearanceTier?.replaceAll("_", " ") || "Agent"}</p>
               </div>
+            </div>
+            <div className="mt-3 rounded-xl border border-emerald-200 bg-white p-3">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-800">Verified property visit</p>
+              <p className="mt-1 text-sm font-bold text-slate-900">{inspectionInfo?.propertyTitle || "Assigned property inspection"}</p>
+              <p className="mt-1 text-xs text-slate-600">Inspection reference: {inspectionInfo?.id || inspectionId}</p>
+              {inspectionInfo?.scheduledAt && <p className="mt-1 text-xs text-slate-600">Scheduled: {new Date(inspectionInfo.scheduledAt).toLocaleString()}</p>}
             </div>
             <p className="mt-3 rounded-xl bg-white/80 p-3 text-xs leading-5 text-slate-700">{message}</p>
             {!confirmed ? (

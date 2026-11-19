@@ -32,6 +32,10 @@ function normalizeAgent(value: unknown): AdminAgent | null {
     isActive: typeof item.isActive === "boolean" ? item.isActive : true,
     agentClearanceTier: tier,
     updatedAt: typeof item.updatedAt === "string" ? item.updatedAt : null,
+    createdAt: typeof item.createdAt === "string" ? item.createdAt : null,
+    avatar: typeof item.avatar === "string" ? item.avatar : null,
+    phoneNumber: typeof item.phoneNumber === "string" ? item.phoneNumber : null,
+    gender: typeof item.gender === "string" ? item.gender : null,
     organization:
       item.organization && typeof item.organization === "object"
         ? (item.organization as AdminAgent["organization"])
