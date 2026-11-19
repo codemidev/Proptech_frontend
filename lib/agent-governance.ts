@@ -39,6 +39,7 @@ export type AdminAgent = {
   status: AgentStatus;
   isVerified: boolean;
   isActive: boolean;
+  siteIdentityPhotoCapturedAt?: string | null;
   agentClearanceTier: AgentClearanceTier | null;
   updatedAt?: string | null;
   createdAt?: string | null;
