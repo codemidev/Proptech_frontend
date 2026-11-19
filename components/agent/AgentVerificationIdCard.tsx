@@ -24,18 +24,21 @@ export function AgentVerificationIdCard() {
   const { getToken } = useAuth();
   const [data, setData] = useState<AgentCardData | null>(null);
   const [notice, setNotice] = useState("");
-  const [loading, setLoading] = useState(true);\n  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     let active = true;
     apiFetch<{ success: boolean; data: AgentCardData }>("/api/v1/agents/me/verification-card", getToken)
       .then((response) => { if (active) setData(response.data); })
-      .catch(() => { if (active) setData(null); })
+      .catch((cause) => { if (active) { setData(null); setError(cause instanceof Error ? cause.message : "Unable to load your Field ID card."); } })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [getToken]);
 
-  function printCard() { window.print(); }\n\n  async function copyId() {
+  function printCard() { window.print(); }
+
+  async function copyId() {
     if (!data) return;
     try {
       await navigator.clipboard.writeText(data.qrPayload);
@@ -45,7 +48,8 @@ export function AgentVerificationIdCard() {
     }
   }
 
-  if (loading) return <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-500">Loading your Aviritech Field ID card…</section>;\n  if (!data) return <section className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-5"><p className="font-semibold text-amber-900">Your Field ID card is not available yet.</p><p className="mt-1 text-sm text-amber-800">{error || "Complete identity registration or contact an administrator."}</p></section>;
+  if (loading) return <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-500">Loading your Aviritech Field ID card…</section>;
+  if (!data) return <section className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-5"><p className="font-semibold text-amber-900">Your Field ID card is not available yet.</p><p className="mt-1 text-sm text-amber-800">{error || "Complete identity registration or contact an administrator."}</p></section>;
   const fullName = [data.agent.firstName, data.agent.lastName].filter(Boolean).join(" ") || "Aviritech Agent";
   const qrImage = "https://api.qrserver.com/v1/create-qr-code/?size=280x280&margin=10&data=" + encodeURIComponent(data.qrPayload);
 
@@ -62,11 +66,13 @@ export function AgentVerificationIdCard() {
         </div>
         <div className="flex flex-col items-center rounded-xl border border-slate-100 bg-white p-2">
           <img src={qrImage} alt="Aviritech agent verification QR code" width={156} height={156} className="h-36 w-36 object-contain" />
-          <button type="button" onClick={printCard} className="mt-1 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-semibold text-[#1A3C6E] hover:bg-slate-50"><Printer size={13} /> Print / Save card</button>\n          <button type="button" onClick={() => void copyId()} className="mt-1 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-semibold text-[#1A3C6E] hover:bg-slate-50"><Copy size={13} /> Copy QR payload</button>
+          <button type="button" onClick={printCard} className="mt-1 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-semibold text-[#1A3C6E] hover:bg-slate-50"><Printer size={13} /> Print / Save card</button>
+          <button type="button" onClick={() => void copyId()} className="mt-1 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-semibold text-[#1A3C6E] hover:bg-slate-50"><Copy size={13} /> Copy QR payload</button>
         </div>
       </div>
       <p className="border-t border-slate-100 bg-slate-50 px-4 py-3 text-[11px] leading-5 text-slate-500">Show this card to the tenant at the inspection. The QR only identifies your Aviritech profile; the tenant&apos;s scan also checks your live assignment and compares your photo. Never lend or share this ID.</p>
-      {notice && <p role="status" className="px-4 pb-3 text-xs text-emerald-700 print:hidden">{notice}</p>}\n      <style jsx global>{`@media print { body * { visibility: hidden !important; } #agent-field-id-card, #agent-field-id-card * { visibility: visible !important; } #agent-field-id-card { position: absolute; inset: 0; width: 100%; margin: 0; } #agent-field-id-card button, #agent-field-id-card p.border-t { display: none !important; } }`}</style>
+      {notice && <p role="status" className="px-4 pb-3 text-xs text-emerald-700 print:hidden">{notice}</p>}
+      <style jsx global>{`@media print { body * { visibility: hidden !important; } #agent-field-id-card, #agent-field-id-card * { visibility: visible !important; } #agent-field-id-card { position: absolute; inset: 0; width: 100%; margin: 0; } #agent-field-id-card button, #agent-field-id-card p.border-t { display: none !important; } }`}</style>
     </section>
   );
 }
