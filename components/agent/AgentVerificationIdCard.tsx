@@ -30,7 +30,7 @@ export function AgentVerificationIdCard() {
     let active = true;
     apiFetch<{ success: boolean; data: AgentCardData }>("/api/v1/agents/me/verification-card", getToken)
       .then((response) => { if (active) setData(response.data); })
-      .catch(() => { if (active) setData(null); })
+      .catch((cause) => { if (active) { setData(null); setError(cause instanceof Error ? cause.message : "Unable to load your Field ID card."); } })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [getToken]);
