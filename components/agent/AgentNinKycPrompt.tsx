@@ -51,7 +51,7 @@ export function AgentNinKycPrompt() {
     setError("");
     setNotice("");
 
-    if (!/^\\d{11}$/.test(nin)) {
+    if (!/^\d{11}$/.test(nin)) {
       setError("Enter your 11-digit NIN.");
       return;
     }
@@ -119,7 +119,7 @@ export function AgentNinKycPrompt() {
             <form onSubmit={submit} className="mt-6 space-y-4">
               <div>
                 <label htmlFor="agent-nin-number" className="mb-1.5 block text-sm font-semibold text-slate-800">National Identification Number (NIN)</label>
-                <input id="agent-nin-number" type="text" inputMode="numeric" autoComplete="off" maxLength={11} value={nin} onChange={(event) => setNin(event.target.value.replace(/\\D/g, "").slice(0, 11))} placeholder="Enter your 11-digit NIN" required className="w-full rounded-lg border border-slate-300 px-3 py-3 text-sm text-slate-900 outline-none focus:border-[#1A3C6E] focus:ring-2 focus:ring-blue-100" />
+                <input id="agent-nin-number" type="text" inputMode="numeric" autoComplete="off" maxLength={11} value={nin} onChange={(event) => setNin(event.target.value.replace(/\D/g, "").slice(0, 11))} placeholder="Enter your 11-digit NIN" required className="w-full rounded-lg border border-slate-300 px-3 py-3 text-sm text-slate-900 outline-none focus:border-[#1A3C6E] focus:ring-2 focus:ring-blue-100" />
               </div>
 
               <div>
