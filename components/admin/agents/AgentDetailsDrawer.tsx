@@ -78,7 +78,12 @@ export function AgentDetailsDrawer({
   }, [agent, getToken]);
 
   useEffect(() => {
-    if (open && agent) void loadKyc();
+    if (open && agent) {
+      setManualNin("");
+      setNinNotice("");
+      setRevealedNins({});
+      void loadKyc();
+    }
     if (!open) { setSubmissions([]); setKycAuditEvents([]); setKycAuditError(""); setRevealedNins({}); setManualNin(""); setNinNotice(""); setKycError(""); }
   }, [open, agent?.id, loadKyc]);
 
