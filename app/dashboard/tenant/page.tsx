@@ -14,6 +14,7 @@ import {
   LogOut,
   Search,
   ShieldCheck,
+  Store,
   Wrench,
   Zap,
 } from "lucide-react";
@@ -84,7 +85,7 @@ const quickActions = [
   { href: "/dashboard/tenant/maintenance", label: "Maintenance", icon: Wrench, tint: "bg-[#FFF5CC]" },
   { href: "/dashboard/tenant/utilities", label: "Utilities", icon: Zap, tint: "bg-[#DDF5E4]" },
   { href: "/dashboard/tenant/inspections", label: "Inspections", icon: ClipboardCheck, tint: "bg-[#EDE7FB]" },
-  { href: "/dashboard/tenant/search", label: "Marketplace", icon: ClipboardCheck, tint: "bg-[#FFF5CC]" },
+  { href: "/marketplace", label: "Marketplace", icon: Store, tint: "bg-[#FFF5CC]" },
   { href: "/dashboard/tenant/move-in", label: "Move-in", icon: ClipboardCheck, tint: "bg-[#FFF5CC]" },
 ];
 
