@@ -309,6 +309,22 @@ export async function revealAgentNin(submissionId: string, getToken: GetToken) {
   );
 }
 
+export async function setAgentNinManually(
+  agentId: string,
+  nin: string,
+  getToken: GetToken,
+) {
+  return apiFetch<{
+    success: boolean;
+    message: string;
+    data: { id: string; status: string; ninLast4: string; submittedAt: string };
+  }>(
+    `/api/v1/admin/dashboard/agents/${encodeURIComponent(agentId)}/kyc/nin`,
+    getToken,
+    { method: "PUT", body: JSON.stringify({ nin }) },
+  );
+}
+
 export async function getAgentKycDocumentUrl(documentId: string, getToken: GetToken) {
   return apiFetch<{ success: boolean; data: { url: string; expiresIn: number } }>(
     `/api/v1/admin/dashboard/agents/kyc/documents/${encodeURIComponent(documentId)}/url`,
