@@ -18,9 +18,6 @@ import {
   Search,
   ShieldCheck,
   ShoppingBasket,
-  Smartphone,
-  Package,
-  Sofa,
   Truck,
   Wrench,
 } from "lucide-react";
@@ -234,7 +231,10 @@ export default function MarketplacePage() {
         </div>
       </header>
 
-      <section className="relative isolate overflow-hidden border-b border-black/10 bg-[#FACC15] text-black">\n        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_75%_45%,rgba(255,255,255,0.55),transparent_38%),linear-gradient(120deg,rgba(255,255,255,0.18),transparent_55%)]" />\n        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,#FACC15_0%,rgba(250,204,21,0.94)_38%,rgba(250,204,21,0.1)_100%)]" />\n        <MarketplaceScene />
+      <section className="relative isolate overflow-hidden border-b border-black/10 bg-[#FACC15] text-black">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_75%_45%,rgba(255,255,255,0.55),transparent_38%),linear-gradient(120deg,rgba(255,255,255,0.18),transparent_55%)]" />
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,#FACC15_0%,rgba(250,204,21,0.94)_38%,rgba(250,204,21,0.1)_100%)]" />
+        <MarketplaceScene />
         <div className="relative z-10 mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-[1.2fr_.8fr] md:items-center lg:px-8 lg:py-16">
           <div>
             <p className="text-xs font-black uppercase tracking-[.22em] text-black/70">Home living, all in one place</p>
@@ -243,9 +243,9 @@ export default function MarketplacePage() {
             <a href="#categories" className="mt-7 inline-flex items-center gap-2 rounded-xl bg-black px-5 py-3 text-sm font-black text-[#FACC15] shadow-lg transition hover:-translate-y-0.5 hover:bg-[#202020]">Explore marketplace <ArrowRight size={17} /></a>
           </div>
           <div className="grid grid-cols-2 gap-3 md:pr-2">
-            {[{icon:ShoppingBasket,title:"Shop essentials",desc:"Products for everyday living"},{icon:Lightbulb,title:"Smart home",desc:"IoT and connected devices"},{icon:Wrench,title:"Book professionals",desc:"Skills and home services"},{icon:Truck,title:"Get it delivered",desc:"Convenient home delivery"}].map((item) => {
+            {[{icon:ShoppingBasket,title:"Shop essentials",desc:"Products for everyday living",color:"text-cyan-300",tile:"bg-cyan-400/15"},{icon:Lightbulb,title:"Smart home",desc:"IoT and connected devices",color:"text-violet-300",tile:"bg-violet-400/15"},{icon:Wrench,title:"Book professionals",desc:"Skills and home services",color:"text-emerald-300",tile:"bg-emerald-400/15"},{icon:Truck,title:"Get it delivered",desc:"Convenient home delivery",color:"text-orange-300",tile:"bg-orange-400/15"}].map((item) => {
               const Icon = item.icon;
-              return <div key={item.title} className="rounded-2xl border border-yellow-400/20 bg-[#111108]/80 p-4 backdrop-blur-sm"><Icon className="text-[#FACC15]" size={23}/><p className="mt-4 text-sm font-extrabold">{item.title}</p><p className="mt-1 text-xs leading-5 text-gray-300">{item.desc}</p></div>;
+              return <div key={item.title} className="group rounded-2xl border border-black/10 bg-black/75 p-4 text-white shadow-[0_12px_30px_rgba(0,0,0,0.12)] backdrop-blur-sm transition duration-300 hover:-translate-y-1 hover:bg-black/85"><span className={`inline-flex h-10 w-10 items-center justify-center rounded-xl ${item.tile}`}><Icon className={item.color} size={23}/></span><p className="mt-3 text-sm font-extrabold">{item.title}</p><p className="mt-1 text-xs leading-5 text-white/65">{item.desc}</p></div>;
             })}
           </div>
         </div>
