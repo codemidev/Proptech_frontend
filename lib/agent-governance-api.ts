@@ -220,3 +220,98 @@ export async function getAgentAuditHistory(
     getToken,
   );
 }
+
+export type AdminAgentKycSubmission = {
+  id: string;
+  status: string;
+  submittedAt: string;
+  reviewedAt: string | null;
+  reviewReason: string | null;
+  ninLast4: string | null;
+  agent: {
+    id: string;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+    gender: string | null;
+    phoneNumber: string | null;
+    avatar: string | null;
+    status: string;
+    isVerified: boolean;
+    isActive: boolean;
+    agentClearanceTier: string | null;
+    createdAt: string;
+    updatedAt: string;
+    organizationId: string;
+  };
+  reviewer: { id: string; firstName: string | null; lastName: string | null; email: string } | null;
+  documents: {
+    id: string;
+    documentType: string;
+    originalName: string;
+    mimeType: string;
+    fileSize: number;
+    createdAt: string;
+  }[];
+};
+
+export type AdminAgentKycAuditEvent = {
+  id: string;
+  action: string;
+  description: string | null;
+  createdAt: string;
+  actor: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    email: string;
+  } | null;
+  metadata: {
+    previousStatus: string | null;
+    newStatus: string | null;
+    reason: string | null;
+    documentId: string | null;
+  };
+};
+
+export async function getAgentKycQueue(getToken: GetToken, agentId?: string) {
+  const query = agentId ? `?agentId=${encodeURIComponent(agentId)}` : "";
+  return apiFetch<{ success: boolean; data: AdminAgentKycSubmission[] }>(
+    `/api/v1/admin/dashboard/agents/kyc${query}`,
+    getToken,
+  );
+}
+
+export async function getAgentKycAuditHistory(getToken: GetToken, agentId: string) {
+  return apiFetch<{ success: boolean; data: AdminAgentKycAuditEvent[] }>(
+    `/api/v1/admin/dashboard/agents/kyc/audit?agentId=${encodeURIComponent(agentId)}`,
+    getToken,
+  );
+}
+
+export async function reviewAgentKyc(
+  submissionId: string,
+  status: string,
+  reason: string,
+  getToken: GetToken,
+) {
+  return apiFetch<{ success: boolean }>(
+    `/api/v1/admin/dashboard/agents/kyc/${encodeURIComponent(submissionId)}/review`,
+    getToken,
+    { method: "PATCH", body: JSON.stringify({ status, reason }) },
+  );
+}
+
+export async function revealAgentNin(submissionId: string, getToken: GetToken) {
+  return apiFetch<{ success: boolean; data: { nin: string } }>(
+    `/api/v1/admin/dashboard/agents/kyc/submissions/${encodeURIComponent(submissionId)}/nin`,
+    getToken,
+  );
+}
+
+export async function getAgentKycDocumentUrl(documentId: string, getToken: GetToken) {
+  return apiFetch<{ success: boolean; data: { url: string; expiresIn: number } }>(
+    `/api/v1/admin/dashboard/agents/kyc/documents/${encodeURIComponent(documentId)}/url`,
+    getToken,
+  );
+}
