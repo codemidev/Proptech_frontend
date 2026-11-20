@@ -264,7 +264,9 @@ export function AgentDetailsDrawer({
             <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50/60 p-4">
               <h4 className="text-sm font-bold text-slate-900">Enter NIN manually</h4>
               <p className="mt-1 text-xs leading-5 text-slate-600">Use this when the agent cannot submit their NIN. It is encrypted before storage and the entry is recorded in the KYC audit history. Saving it does not automatically verify the agent.</p>
-              {latestKycSubmission?.status === "VERIFIED" && latestKycSubmission.ninLast4 ? (
+              {latestKycSubmission?.status === "UNDER_REVIEW" ? (
+                <p className="mt-3 text-xs font-semibold text-amber-800">This agent&apos;s KYC is currently under review. Request more information before changing the submitted NIN.</p>
+              ) : latestKycSubmission?.status === "VERIFIED" && latestKycSubmission.ninLast4 ? (
                 <p className="mt-3 text-xs font-semibold text-emerald-700">This agent already has a verified NIN. Reopen the KYC review workflow before changing it.</p>
               ) : (
                 <div className="mt-3 flex flex-col gap-2 sm:flex-row">
