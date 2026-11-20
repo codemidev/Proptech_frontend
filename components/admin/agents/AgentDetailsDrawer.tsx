@@ -146,7 +146,7 @@ export function AgentDetailsDrawer({
   }
   async function saveManualNin() {
     const value = manualNin.trim();
-    if (!/^\\d{11}$/.test(value)) {
+    if (!/^\d{11}$/.test(value)) {
       setKycError("Enter a valid 11-digit NIN.");
       return;
     }
@@ -266,7 +266,7 @@ export function AgentDetailsDrawer({
                     autoComplete="off"
                     maxLength={11}
                     value={manualNin}
-                    onChange={(event) => setManualNin(event.target.value.replace(/\\D/g, "").slice(0, 11))}
+                    onChange={(event) => setManualNin(event.target.value.replace(/\D/g, "").slice(0, 11))}
                     placeholder="Enter 11-digit NIN"
                     aria-label="Agent NIN"
                     className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-mono text-slate-900 outline-none focus:border-[#1A3C6E] focus:ring-2 focus:ring-blue-100"
