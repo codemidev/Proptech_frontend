@@ -220,8 +220,8 @@ export default function MarketplacePage() {
       <header className="border-b border-yellow-400/15 bg-[#050505]">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <Link href="/dashboard" className="flex items-center gap-2 text-sm font-black tracking-tight text-yellow-300">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FACC15]"><Home size={19} /></span>
-            AVIRITECH <span className="font-medium text-gray-400">Marketplace</span>
+            <img src="https://res.cloudinary.com/dcgghkk7q/image/upload/v1759998893/Aviritech_white_text_on_black_background-removebg-preview_1_xlhuzw.png" alt="Aviritech" className="h-9 w-auto max-w-[150px] object-contain" />
+            <span className="border-l border-white/15 pl-2 font-medium text-gray-400">Marketplace</span>
           </Link>
           <nav className="flex items-center gap-3 text-sm">
             <Link href="/marketplace/shop" className="rounded-xl bg-[#FACC15] px-4 py-2.5 font-bold text-black hover:bg-yellow-300">Shop products</Link>
@@ -248,6 +248,59 @@ export default function MarketplacePage() {
               return <div key={item.title} className="group rounded-2xl border border-black/10 bg-black/75 p-4 text-white shadow-[0_12px_30px_rgba(0,0,0,0.12)] backdrop-blur-sm transition duration-300 hover:-translate-y-1 hover:bg-black/85"><span className={`inline-flex h-10 w-10 items-center justify-center rounded-xl ${item.tile}`}><Icon className={item.color} size={23}/></span><p className="mt-3 text-sm font-extrabold">{item.title}</p><p className="mt-1 text-xs leading-5 text-white/65">{item.desc}</p></div>;
             })}
           </div>
+        </div>
+      </section>
+
+      <section aria-label="Marketplace promotions" className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mb-4 flex items-end justify-between gap-3">
+          <div><p className="text-[11px] font-black uppercase tracking-[.2em] text-yellow-300">The Aviritech edit</p><h2 className="mt-1 text-xl font-black sm:text-2xl">Discover more. Live better.</h2></div>
+          <span className="hidden rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400 sm:inline-flex">Marketplace highlights</span>
+        </div>
+        <div className="grid gap-4 lg:grid-cols-3">
+          <article className="group relative isolate min-h-[250px] overflow-hidden rounded-[1.6rem] border border-yellow-300/20 bg-[#FACC15] p-6 text-black shadow-[0_18px_55px_rgba(250,204,21,0.08)] sm:min-h-[290px] sm:p-8 lg:col-span-2">
+            <div className="pointer-events-none absolute -right-12 -top-16 h-72 w-72 rounded-full border-[36px] border-black/[0.06] transition duration-700 group-hover:scale-110" />
+            <div className="pointer-events-none absolute right-8 top-8 hidden h-44 w-44 rotate-[-12deg] items-center justify-center rounded-[2rem] border border-black/10 bg-white/35 shadow-2xl backdrop-blur-sm sm:flex">
+              <div className="relative flex h-32 w-24 flex-col items-center justify-center rounded-[1.4rem] border-[5px] border-black/80 bg-[#181818] shadow-xl">
+                <div className="absolute top-2 h-1 w-7 rounded-full bg-white/30" />
+                <Lightbulb className="text-yellow-300" size={35}/>
+                <span className="mt-2 h-1.5 w-12 rounded-full bg-cyan-300"/>
+                <span className="mt-2 h-1.5 w-8 rounded-full bg-emerald-300"/>
+              </div>
+              <span className="absolute -bottom-3 -left-4 flex h-14 w-14 items-center justify-center rounded-2xl border-4 border-[#FACC15] bg-black text-cyan-300 shadow-xl"><Home size={27}/></span>
+            </div>
+            <div className="relative z-10 max-w-lg">
+              <span className="inline-flex rounded-full border border-black/15 bg-black/5 px-3 py-1 text-[10px] font-black uppercase tracking-[.16em]">Smart living collection</span>
+              <h3 className="mt-5 max-w-md text-3xl font-black leading-[1.05] sm:text-4xl">A smarter home starts with the little things.</h3>
+              <p className="mt-3 max-w-sm text-sm leading-6 text-black/70">Explore connected devices, home security and technology that makes everyday living easier.</p>
+              <Link href="#categories" className="mt-6 inline-flex items-center gap-2 rounded-xl bg-black px-4 py-3 text-xs font-black text-[#FACC15] transition duration-300 hover:-translate-y-1 hover:bg-[#202020]">Explore smart living <ArrowRight size={15}/></Link>
+            </div>
+          </article>
+          <article className="group relative isolate min-h-[250px] overflow-hidden rounded-[1.6rem] border border-white/10 bg-[linear-gradient(145deg,#202b3b,#10151e_72%)] p-6 sm:min-h-[290px] sm:p-7">
+            <div className="pointer-events-none absolute -right-7 -top-8 h-44 w-44 rounded-full bg-cyan-400/10 blur-2xl transition duration-700 group-hover:bg-cyan-300/20"/>
+            <div className="absolute right-5 top-7 flex h-28 w-28 rotate-6 items-center justify-center rounded-[1.8rem] border border-white/10 bg-white/[0.06] shadow-2xl backdrop-blur-sm transition duration-500 group-hover:rotate-12 group-hover:scale-105">
+              <ShoppingBasket className="text-cyan-300" size={58} strokeWidth={1.4}/>
+              <span className="absolute -right-2 -top-2 flex h-9 w-9 items-center justify-center rounded-xl bg-[#FACC15] text-black shadow-lg"><Boxes size={18}/></span>
+            </div>
+            <div className="relative z-10 mt-28 sm:mt-32">
+              <p className="text-[10px] font-black uppercase tracking-[.18em] text-cyan-300">Everyday essentials</p>
+              <h3 className="mt-2 text-2xl font-black leading-tight text-white">Good finds for every corner.</h3>
+              <p className="mt-2 text-xs leading-5 text-gray-300">Browse home goods, furniture and everyday essentials.</p>
+              <Link href="/marketplace/shop" className="mt-4 inline-flex items-center gap-2 text-xs font-black text-cyan-300 transition group-hover:gap-3">Shop products <ArrowRight size={14}/></Link>
+            </div>
+          </article>
+          <article className="group relative isolate min-h-[220px] overflow-hidden rounded-[1.6rem] border border-white/10 bg-[linear-gradient(120deg,#123a31,#101c1a)] p-6 sm:p-7 lg:col-span-3">
+            <div className="pointer-events-none absolute -right-8 -top-24 h-72 w-72 rounded-full border-[34px] border-emerald-300/[0.07] transition duration-700 group-hover:scale-110"/>
+            <div className="absolute right-8 top-1/2 hidden h-36 w-36 -translate-y-1/2 items-center justify-center rounded-[2rem] border border-emerald-200/15 bg-emerald-300/[0.08] shadow-2xl backdrop-blur-sm sm:flex">
+              <Wrench className="text-emerald-300" size={62} strokeWidth={1.35}/>
+              <span className="absolute -bottom-3 -right-3 flex h-12 w-12 items-center justify-center rounded-2xl border-4 border-[#123a31] bg-[#FACC15] text-black"><ShieldCheck size={22}/></span>
+            </div>
+            <div className="relative z-10 max-w-2xl">
+              <p className="text-[10px] font-black uppercase tracking-[.18em] text-emerald-300">Trusted home services</p>
+              <h3 className="mt-2 text-2xl font-black text-white sm:text-3xl">The right help, right when home needs it.</h3>
+              <p className="mt-2 max-w-xl text-sm leading-6 text-emerald-50/70">Connect with skilled professionals for repairs, cleaning and property maintenance.</p>
+              <Link href="/dashboard/owner/maintenance" className="mt-5 inline-flex items-center gap-2 rounded-xl border border-emerald-200/25 bg-white/10 px-4 py-3 text-xs font-black text-white backdrop-blur-sm transition hover:-translate-y-1 hover:bg-white/15">Explore home services <ArrowRight size={15}/></Link>
+            </div>
+          </article>
         </div>
       </section>
 
