@@ -2,6 +2,7 @@
 
 import { AgentClearanceStatusCard } from "@/components/agent/AgentClearanceStatusCard";
 import { AgentVerificationIdCard } from "@/components/agent/AgentVerificationIdCard";
+import { AgentNinKycPrompt } from "@/components/agent/AgentNinKycPrompt";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth, useUser, UserButton } from "@clerk/nextjs";
@@ -1398,6 +1399,7 @@ if (!isSignedIn) {
 
   return (
     <main className="agent-dashboard min-h-screen bg-[#f7f7f5] text-slate-900">
+      <AgentNinKycPrompt />
 
         {fieldIdCheckComplete && fieldIdRequired && (
           <div
