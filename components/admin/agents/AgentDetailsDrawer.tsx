@@ -57,7 +57,9 @@ export function AgentDetailsDrawer({
   const [loadingKyc, setLoadingKyc] = useState(false);
   const [kycError, setKycError] = useState("");
   const [kycBusy, setKycBusy] = useState("");
-  const [revealedNins, setRevealedNins] = useState<Record<string, string>>({});\n  const [manualNin, setManualNin] = useState("");\n  const [ninNotice, setNinNotice] = useState("");
+  const [revealedNins, setRevealedNins] = useState<Record<string, string>>({});
+  const [manualNin, setManualNin] = useState("");
+  const [ninNotice, setNinNotice] = useState("");
 
   const loadKyc = useCallback(async () => {
     if (!agent) return;
