@@ -6,6 +6,7 @@ import { AlertCircle, CheckCircle2, RefreshCw, ShieldCheck, Zap } from "lucide-r
 import { apiFetch } from "@/lib/api";
 import { TopAppBar } from "@/components/shell/TopAppBar";
 import { Card } from "@/components/ui/Card";
+import AirtimeToCashExperience from "@/components/tenant/AirtimeToCashExperience";
 
 type Row = Record<string, unknown>;
 type ApiResponse<T> = { success: boolean; data: T; message?: string };
@@ -448,6 +449,8 @@ export default function UtilitiesPage() {
             <CheckCircle2 className="h-5 w-5 shrink-0" /> {notice}
           </div>
         )}
+
+        <AirtimeToCashExperience />
 
         <Card>
           <div className="space-y-5 p-5">
