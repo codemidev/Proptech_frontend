@@ -18,6 +18,8 @@ export function AgentNinKycPrompt() {
   const { getToken } = useAuth();
   const [checked, setChecked] = useState(false);
   const [required, setRequired] = useState(false);
+  const [hasNin, setHasNin] = useState(false);
+  const [submissionStatus, setSubmissionStatus] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const [nin, setNin] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -32,10 +34,15 @@ export function AgentNinKycPrompt() {
         getToken,
       );
       const latest = Array.isArray(response.data) ? response.data[0] : undefined;
-      const hasNin = Boolean(latest?.ninLast4);
-      setRequired(!hasNin);
+      const ninPresent = Boolean(latest?.ninLast4);
+      setHasNin(ninPresent);
+      setSubmissionStatus(latest?.status ?? null);
+      // Only a verified NIN clears the mandatory sign-in prompt.
+      setRequired(!(latest?.status === "VERIFIED" && ninPresent));
     } catch {
       // Do not infer that the agent has submitted NIN when the status check fails.
+      setHasNin(false);
+      setSubmissionStatus(null);
       setRequired(true);
     } finally {
       setChecked(true);
@@ -116,6 +123,14 @@ export function AgentNinKycPrompt() {
               <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800">Required</span>
             </div>
 
+            {hasNin && (submissionStatus === "PENDING" || submissionStatus === "UNDER_REVIEW") ? (
+              <div className="mt-6 space-y-4">
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+                  Your NIN has been received and is awaiting administrator verification. You do not need to submit it again. Agent Network operations remain restricted until verification is complete.
+                </div>
+                <button type="button" onClick={() => setDismissed(true)} className="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">Remind me later</button>
+              </div>
+            ) : (
             <form onSubmit={submit} className="mt-6 space-y-4">
               <div>
                 <label htmlFor="agent-nin-number" className="mb-1.5 block text-sm font-semibold text-slate-800">National Identification Number (NIN)</label>
@@ -138,6 +153,7 @@ export function AgentNinKycPrompt() {
               <button type="submit" disabled={busy} className="w-full rounded-lg bg-[#1A3C6E] px-4 py-3 text-sm font-bold text-white hover:bg-[#142f57] disabled:cursor-not-allowed disabled:opacity-60">{busy ? "Submitting securely..." : "Submit NIN for verification"}</button>
               <button type="button" disabled={busy} onClick={() => setDismissed(true)} className="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50">Remind me later</button>
             </form>
+            )}
           </section>
         </div>
       )}
