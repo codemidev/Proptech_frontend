@@ -171,6 +171,8 @@ export default function AirtimeToCashExperience() {
   const [sender, setSender] = useState("");
   const [amount, setAmount] = useState("2000");
   const [bankCode, setBankCode] = useState("");
+  const [bankSearch, setBankSearch] = useState("");
+  const [bankDropdownOpen, setBankDropdownOpen] = useState(false);
   const [accountNumber, setAccountNumber] = useState("");
   const [accountName, setAccountName] = useState("");
   const [otp, setOtp] = useState("");
@@ -214,6 +216,11 @@ export default function AirtimeToCashExperience() {
   const payout = Number.isFinite(numericAmount) ? Math.round(numericAmount * rate / 100) : 0;
   const margin = Math.max(0, numericAmount - payout);
   const range = limits[network];
+  const eligibleBanks = banks.filter((bank) => /^\d+$/.test(bank.code));
+  const selectedBank = eligibleBanks.find((bank) => bank.code === bankCode);
+  const filteredBanks = eligibleBanks.filter((bank) =>
+    bank.name.toLocaleLowerCase().includes(bankSearch.trim().toLocaleLowerCase()),
+  );
 
   async function resolveBankAccount() {
     setBusy(true); setError(""); setNotice(""); setAccountName("");
@@ -311,12 +318,67 @@ export default function AirtimeToCashExperience() {
                 <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 sm:col-span-2">Sender&apos;s phone number
                   <input value={sender} onChange={(e) => setSender(e.target.value)} inputMode="tel" placeholder="080XXXXXXXX" className="mt-2 w-full rounded-xl border border-white/15 bg-[#151515] px-3 py-3 text-sm text-white outline-none focus:border-yellow-400" />
                 </label>
-                <label className="text-xs font-semibold uppercase tracking-wider text-gray-400">Destination bank
-                  <select value={bankCode} onChange={(e) => { setBankCode(e.target.value); setAccountName(""); }} className="mt-2 w-full rounded-xl border border-white/15 bg-[#151515] px-3 py-3 text-sm text-white outline-none focus:border-yellow-400">
-                    <option value="">Select bank</option>
-                    {banks.filter((bank) => /^\d+$/.test(bank.code)).map((bank) => <option key={bank.id} value={bank.code}>{bank.name}</option>)}
-                  </select>
-                </label>
+                <div className="relative text-xs font-semibold uppercase tracking-wider text-gray-400">
+                  <label htmlFor="airtime-destination-bank">Destination bank</label>
+                  <input
+                    id="airtime-destination-bank"
+                    type="search"
+                    role="combobox"
+                    aria-autocomplete="list"
+                    aria-expanded={bankDropdownOpen}
+                    aria-controls="airtime-destination-bank-options"
+                    value={bankDropdownOpen ? bankSearch : selectedBank?.name ?? ""}
+                    onFocus={() => { setBankSearch(""); setBankDropdownOpen(true); }}
+                    onChange={(event) => {
+                      setBankSearch(event.target.value);
+                      setBankCode("");
+                      setAccountName("");
+                      setBankDropdownOpen(true);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Escape") {
+                        setBankDropdownOpen(false);
+                        setBankSearch("");
+                      }
+                      if (event.key === "Enter" && filteredBanks.length === 1) {
+                        event.preventDefault();
+                        setBankCode(filteredBanks[0].code);
+                        setAccountName("");
+                        setBankSearch("");
+                        setBankDropdownOpen(false);
+                      }
+                    }}
+                    placeholder="Search bank by name..."
+                    autoComplete="off"
+                    className="mt-2 w-full rounded-xl border border-white/15 bg-[#151515] px-3 py-3 text-sm font-normal normal-case tracking-normal text-white outline-none focus:border-yellow-400"
+                  />
+                  {bankDropdownOpen && (
+                    <div id="airtime-destination-bank-options" role="listbox" aria-label="Destination banks"
+                      className="absolute z-30 mt-1 max-h-60 w-full overflow-y-auto rounded-xl border border-yellow-400/25 bg-[#151515] p-1 shadow-2xl">
+                      {filteredBanks.length > 0 ? filteredBanks.map((bank) => (
+                        <button key={String(bank.id) + "-" + bank.code} type="button" role="option"
+                          aria-selected={bank.code === bankCode}
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => {
+                            setBankCode(bank.code);
+                            setAccountName("");
+                            setBankSearch("");
+                            setBankDropdownOpen(false);
+                          }}
+                          className="w-full rounded-lg px-3 py-3 text-left text-sm font-medium normal-case tracking-normal text-white transition hover:bg-yellow-400/10 hover:text-yellow-200">
+                          {bank.name}
+                        </button>
+                      )) : (
+                        <p className="px-3 py-4 text-sm font-normal normal-case tracking-normal text-gray-400">
+                          No matching bank found. Try another name.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  <p className="mt-1 text-[10px] font-normal normal-case tracking-normal text-gray-500">
+                    {selectedBank ? "Selected: " + selectedBank.name : "Type to filter the bank list."}
+                  </p>
+                </div>
                 <label className="text-xs font-semibold uppercase tracking-wider text-gray-400">Account number
                   <input value={accountNumber} onChange={(e) => { setAccountNumber(e.target.value); setAccountName(""); }} inputMode="numeric" maxLength={10} placeholder="10-digit account number" className="mt-2 w-full rounded-xl border border-white/15 bg-[#151515] px-3 py-3 text-sm text-white outline-none focus:border-yellow-400" />
                 </label>
