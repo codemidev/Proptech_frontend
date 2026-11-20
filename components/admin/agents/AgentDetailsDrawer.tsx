@@ -1,11 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
-import { X, Printer, RefreshCw } from "lucide-react";
+import { X, Printer, RefreshCw, Eye, FileText, ShieldCheck } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import type { AdminAgent } from "@/lib/agent-governance";
 import { agentDisplayName } from "@/lib/agent-governance";
+import {
+  getAgentKycQueue, getAgentKycAuditHistory, reviewAgentKyc, revealAgentNin,
+  getAgentKycDocumentUrl, type AdminAgentKycSubmission, type AdminAgentKycAuditEvent,
+} from "@/lib/agent-governance-api";
 import { AgentStatusBadge } from "./AgentStatusBadge";
 import { AgentTierBadge } from "./AgentTierBadge";
 
@@ -47,6 +51,34 @@ export function AgentDetailsDrawer({
   } | null>(null);
   const [identityLoading, setIdentityLoading] = useState(false);
   const [identityError, setIdentityError] = useState("");
+  const [submissions, setSubmissions] = useState<AdminAgentKycSubmission[]>([]);
+  const [kycAuditEvents, setKycAuditEvents] = useState<AdminAgentKycAuditEvent[]>([]);
+  const [kycAuditError, setKycAuditError] = useState("");
+  const [loadingKyc, setLoadingKyc] = useState(false);
+  const [kycError, setKycError] = useState("");
+  const [kycBusy, setKycBusy] = useState("");
+  const [revealedNins, setRevealedNins] = useState<Record<string, string>>({});
+
+  const loadKyc = useCallback(async () => {
+    if (!agent) return;
+    setLoadingKyc(true); setKycError(""); setKycAuditError("");
+    try {
+      const [result, audit] = await Promise.allSettled([
+        getAgentKycQueue(getToken, agent.id), getAgentKycAuditHistory(getToken, agent.id),
+      ]);
+      if (result.status === "rejected") throw result.reason;
+      setSubmissions(result.value.data);
+      if (audit.status === "fulfilled") setKycAuditEvents(audit.value.data);
+      else { setKycAuditEvents([]); setKycAuditError(audit.reason instanceof Error ? audit.reason.message : "Unable to load KYC activity history."); }
+    } catch (error) {
+      setKycError(error instanceof Error ? error.message : "Unable to load KYC records.");
+    } finally { setLoadingKyc(false); }
+  }, [agent, getToken]);
+
+  useEffect(() => {
+    if (open && agent) void loadKyc();
+    if (!open) { setSubmissions([]); setKycAuditEvents([]); setKycAuditError(""); setRevealedNins({}); setKycError(""); }
+  }, [open, agent?.id, loadKyc]);
 
   useEffect(() => {
     if (!open || !agent) {
@@ -99,12 +131,40 @@ export function AgentDetailsDrawer({
     popup.document.close();
   }
 
+
+  async function decideKyc(submissionId: string, status: string) {
+    let reason = "";
+    if (status === "MORE_INFO_REQUIRED" || status === "REJECTED") {
+      const answer = window.prompt(status === "REJECTED" ? "Enter the reason for rejecting this NIN KYC submission:" : "Tell the agent what additional information is required:");
+      if (!answer?.trim()) return;
+      reason = answer.trim();
+    }
+    setKycBusy(submissionId); setKycError("");
+    try { await reviewAgentKyc(submissionId, status, reason, getToken); await loadKyc(); }
+    catch (error) { setKycError(error instanceof Error ? error.message : "KYC review failed."); }
+    finally { setKycBusy(""); }
+  }
+  async function showNin(submissionId: string) {
+    setKycBusy(submissionId); setKycError("");
+    try { const result = await revealAgentNin(submissionId, getToken); setRevealedNins(v => ({...v,[submissionId]:result.data.nin})); }
+    catch (error) { setKycError(error instanceof Error ? error.message : "Unable to reveal NIN."); }
+    finally { setKycBusy(""); }
+  }
+  async function openKycDocument(documentId: string) {
+    setKycBusy(documentId); setKycError("");
+    try { const result = await getAgentKycDocumentUrl(documentId, getToken); window.open(result.data.url, "_blank", "noopener,noreferrer"); }
+    catch (error) { setKycError(error instanceof Error ? error.message : "Unable to open identity document."); }
+    finally { setKycBusy(""); }
+  }
+
   if (!open || !agent) return null;
 
   const canApprove =
     agent.status === "PENDING_APPROVAL" ||
     !agent.isVerified ||
     !agent.agentClearanceTier;
+  const latestKycSubmission = [...submissions].sort((a,b) => new Date(b.submittedAt).getTime()-new Date(a.submittedAt).getTime())[0];
+  const hasVerifiedKyc = latestKycSubmission?.status === "VERIFIED";
 
   // Clearance changes are only valid after the Agent has completed
   // the initial approval transition and received a clearance tier.
@@ -164,10 +224,38 @@ export function AgentDetailsDrawer({
               </>
             )}
           </section>
+
+          <section>
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900"><ShieldCheck size={17}/> Identity and NIN KYC review</h3>
+              <button type="button" onClick={() => void loadKyc()} disabled={loadingKyc} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-50"><RefreshCw size={14} className={loadingKyc ? "animate-spin" : ""}/> Refresh</button>
+            </div>
+            <p className="mt-1 text-xs text-slate-500">Review submitted NIN and identity evidence. Onsite Face ID is separate and does not verify NIN KYC.</p>
+            {kycError && <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{kycError}</p>}
+            {loadingKyc && <p className="py-4 text-sm text-slate-500">Loading KYC submissions…</p>}
+            {!loadingKyc && !submissions.length && <p className="mt-3 rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">No NIN KYC submission found for this agent.</p>}
+            <div className="mt-3 space-y-4">
+              {submissions.map(s => <div key={s.id} className="rounded-xl border border-slate-200 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2"><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">{s.status.replaceAll("_"," ")}</span><span className="text-xs text-slate-500">Submitted {new Date(s.submittedAt).toLocaleString()}</span></div>
+                <div className="mt-3 text-sm"><span className="text-slate-500">National Identification Number (NIN)</span><div className="mt-1 flex flex-wrap items-center gap-2"><span className="font-mono font-semibold text-slate-900">{revealedNins[s.id] || (s.ninLast4 ? `•••••••${s.ninLast4}` : "Not submitted")}</span>{s.ninLast4 && !revealedNins[s.id] && <button type="button" onClick={() => void showNin(s.id)} disabled={Boolean(kycBusy)} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-700"><Eye size={13}/> Reveal NIN</button>}</div></div>
+                <div className="mt-4"><p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Submitted identity documents</p>{!s.documents.length && <p className="text-sm text-slate-500">No documents attached.</p>}<div className="space-y-2">{s.documents.map(d => <div key={d.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 p-3"><div className="flex min-w-0 items-center gap-2"><FileText size={17}/><div className="min-w-0"><p className="break-all text-sm font-medium text-slate-800">{d.originalName}</p><p className="text-xs text-slate-500">{d.documentType.replaceAll("_"," ")} · {(d.fileSize/1024).toFixed(0)} KB</p></div></div><button type="button" onClick={() => void openKycDocument(d.id)} disabled={Boolean(kycBusy)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700">{kycBusy===d.id ? "Opening…" : "View document"}</button></div>)}</div></div>
+                {s.reviewReason && <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Review note: {s.reviewReason}</p>}
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {(s.status==="PENDING" || s.status==="MORE_INFO_REQUIRED") && <button type="button" onClick={() => void decideKyc(s.id,"UNDER_REVIEW")} disabled={Boolean(kycBusy)} className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white">Start review</button>}
+                  {s.status==="UNDER_REVIEW" && <><button type="button" onClick={() => void decideKyc(s.id,"VERIFIED")} disabled={Boolean(kycBusy)} className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white">Verify NIN identity</button><button type="button" onClick={() => void decideKyc(s.id,"MORE_INFO_REQUIRED")} disabled={Boolean(kycBusy)} className="rounded-lg border border-amber-300 px-3 py-2 text-xs font-semibold text-amber-800">Request more information</button><button type="button" onClick={() => void decideKyc(s.id,"REJECTED")} disabled={Boolean(kycBusy)} className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-700">Reject KYC</button></>}
+                </div>
+                {s.reviewedAt && <p className="mt-3 text-xs text-slate-500">Last reviewed {new Date(s.reviewedAt).toLocaleString()}{s.reviewer ? ` · By ${[s.reviewer.firstName,s.reviewer.lastName].filter(Boolean).join(" ") || s.reviewer.email}` : ""}</p>}
+              </div>)}
+            </div>
+            <div className="mt-5 border-t border-slate-200 pt-4"><h4 className="text-sm font-bold text-slate-900">KYC activity history</h4>{kycAuditError && <p className="mt-2 text-xs text-amber-700">Activity history unavailable: {kycAuditError}</p>}{!loadingKyc && !kycAuditError && !kycAuditEvents.length && <p className="mt-2 text-xs text-slate-500">No KYC audit activity recorded yet.</p>}<ol className="mt-3 space-y-2">{kycAuditEvents.map(e => <li key={e.id} className="rounded-lg border border-slate-200 p-3"><p className="text-xs font-bold text-slate-800">{e.description || e.action.replaceAll("_"," ")}</p><p className="mt-1 text-xs text-slate-500">{new Date(e.createdAt).toLocaleString()} · {[e.actor?.firstName,e.actor?.lastName].filter(Boolean).join(" ") || e.actor?.email || "System"}</p>{e.metadata.reason && <p className="mt-2 text-xs text-amber-800">Reason: {e.metadata.reason}</p>}</li>)}</ol></div>
+          </section>
           <div>
             <h3 className="text-sm font-bold text-slate-900">Administrative actions</h3>
             <div className="mt-3 grid gap-2">
-              {canApprove && <button type="button" onClick={onApprove} className="rounded-xl bg-slate-950 px-4 py-3 text-left text-sm font-semibold text-white hover:bg-slate-800">Approve Agent</button>}
+              {canApprove && (<>
+                {!hasVerifiedKyc && <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">Agent approval is locked until the latest NIN KYC submission is verified. Complete the KYC review above first.</p>}
+                <button type="button" onClick={onApprove} disabled={loadingKyc || !hasVerifiedKyc} title={!hasVerifiedKyc ? "Verify the latest NIN KYC submission before approval" : undefined} className="rounded-xl bg-slate-950 px-4 py-3 text-left text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40">Approve Agent</button>
+              </>)}
               {canChangeTier && (
                 <button
                   type="button"
