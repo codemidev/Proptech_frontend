@@ -8,7 +8,7 @@ import type { AdminAgent } from "@/lib/agent-governance";
 import { agentDisplayName } from "@/lib/agent-governance";
 import {
   getAgentKycQueue, getAgentKycAuditHistory, reviewAgentKyc, revealAgentNin,
-  getAgentKycDocumentUrl, type AdminAgentKycSubmission, type AdminAgentKycAuditEvent,
+  getAgentKycDocumentUrl, setAgentNinManually, type AdminAgentKycSubmission, type AdminAgentKycAuditEvent,
 } from "@/lib/agent-governance-api";
 import { AgentStatusBadge } from "./AgentStatusBadge";
 import { AgentTierBadge } from "./AgentTierBadge";
@@ -57,7 +57,7 @@ export function AgentDetailsDrawer({
   const [loadingKyc, setLoadingKyc] = useState(false);
   const [kycError, setKycError] = useState("");
   const [kycBusy, setKycBusy] = useState("");
-  const [revealedNins, setRevealedNins] = useState<Record<string, string>>({});
+  const [revealedNins, setRevealedNins] = useState<Record<string, string>>({});\n  const [manualNin, setManualNin] = useState("");\n  const [ninNotice, setNinNotice] = useState("");
 
   const loadKyc = useCallback(async () => {
     if (!agent) return;
@@ -77,7 +77,7 @@ export function AgentDetailsDrawer({
 
   useEffect(() => {
     if (open && agent) void loadKyc();
-    if (!open) { setSubmissions([]); setKycAuditEvents([]); setKycAuditError(""); setRevealedNins({}); setKycError(""); }
+    if (!open) { setSubmissions([]); setKycAuditEvents([]); setKycAuditError(""); setRevealedNins({}); setManualNin(""); setNinNotice(""); setKycError(""); }
   }, [open, agent?.id, loadKyc]);
 
   useEffect(() => {
@@ -144,6 +144,27 @@ export function AgentDetailsDrawer({
     catch (error) { setKycError(error instanceof Error ? error.message : "KYC review failed."); }
     finally { setKycBusy(""); }
   }
+  async function saveManualNin() {
+    const value = manualNin.trim();
+    if (!/^\\d{11}$/.test(value)) {
+      setKycError("Enter a valid 11-digit NIN.");
+      return;
+    }
+    setKycBusy("manual-nin");
+    setKycError("");
+    setNinNotice("");
+    try {
+      const result = await setAgentNinManually(agent!.id, value, getToken);
+      setManualNin("");
+      setNinNotice(result.message || "NIN saved securely and queued for review.");
+      await loadKyc();
+    } catch (error) {
+      setKycError(error instanceof Error ? error.message : "Unable to save agent NIN.");
+    } finally {
+      setKycBusy("");
+    }
+  }
+
   async function showNin(submissionId: string) {
     setKycBusy(submissionId); setKycError("");
     try { const result = await revealAgentNin(submissionId, getToken); setRevealedNins(v => ({...v,[submissionId]:result.data.nin})); }
@@ -231,6 +252,36 @@ export function AgentDetailsDrawer({
               <button type="button" onClick={() => void loadKyc()} disabled={loadingKyc} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-50"><RefreshCw size={14} className={loadingKyc ? "animate-spin" : ""}/> Refresh</button>
             </div>
             <p className="mt-1 text-xs text-slate-500">Review submitted NIN and identity evidence. Onsite Face ID is separate and does not verify NIN KYC.</p>
+            {ninNotice && <p role="status" className="mt-3 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">{ninNotice}</p>}
+            <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50/60 p-4">
+              <h4 className="text-sm font-bold text-slate-900">Enter NIN manually</h4>
+              <p className="mt-1 text-xs leading-5 text-slate-600">Use this when the agent cannot submit their NIN. It is encrypted before storage and the entry is recorded in the KYC audit history. Saving it does not automatically verify the agent.</p>
+              {latestKycSubmission?.status === "VERIFIED" && latestKycSubmission.ninLast4 ? (
+                <p className="mt-3 text-xs font-semibold text-emerald-700">This agent already has a verified NIN. Reopen the KYC review workflow before changing it.</p>
+              ) : (
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    maxLength={11}
+                    value={manualNin}
+                    onChange={(event) => setManualNin(event.target.value.replace(/\\D/g, "").slice(0, 11))}
+                    placeholder="Enter 11-digit NIN"
+                    aria-label="Agent NIN"
+                    className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-mono text-slate-900 outline-none focus:border-[#1A3C6E] focus:ring-2 focus:ring-blue-100"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void saveManualNin()}
+                    disabled={Boolean(kycBusy) || manualNin.length !== 11}
+                    className="rounded-lg bg-[#1A3C6E] px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {kycBusy === "manual-nin" ? "Saving securely…" : "Save NIN"}
+                  </button>
+                </div>
+              )}
+            </div>
             {kycError && <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{kycError}</p>}
             {loadingKyc && <p className="py-4 text-sm text-slate-500">Loading KYC submissions…</p>}
             {!loadingKyc && !submissions.length && <p className="mt-3 rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">No NIN KYC submission found for this agent.</p>}
