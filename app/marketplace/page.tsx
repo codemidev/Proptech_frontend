@@ -58,14 +58,14 @@ export default function MarketplacePage() {
             AVIRITECH <span className="font-medium text-gray-400">Marketplace</span>
           </Link>
           <nav className="flex items-center gap-3 text-sm">
-            <Link href="/marketplace/shop" className="rounded-xl bg-[#FACC15] px-4 py-2.5 font-bold text-white hover:bg-[#F5C518]">Shop products</Link>
+            <Link href="/marketplace/shop" className="rounded-xl bg-[#FACC15] px-4 py-2.5 font-bold text-black hover:bg-yellow-300">Shop products</Link>
             <Link href="/dashboard/owner/maintenance" className="hidden font-semibold text-gray-300 hover:text-yellow-300 sm:inline">Maintenance</Link>
             <Link href="/dashboard" className="rounded-xl bg-[#FACC15] px-4 py-2.5 font-bold text-black hover:bg-yellow-300">My dashboard</Link>
           </nav>
         </div>
       </header>
 
-      <section className="bg-yellow-400 text-white">
+      <section className="relative isolate overflow-hidden border-b border-yellow-400/15 bg-[radial-gradient(circle_at_75%_45%,rgba(250,204,21,0.16),transparent_35%),linear-gradient(120deg,#050505,#111108_55%,#050505)] text-white">
         <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-[1.2fr_.8fr] md:items-center lg:px-8 lg:py-16">
           <div>
             <p className="text-xs font-black uppercase tracking-[.22em] text-[#FACC15]">Home living, all in one place</p>
@@ -101,7 +101,7 @@ export default function MarketplacePage() {
               <div className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-yellow-300">Explore category <ChevronRight size={15}/></div>
             </article>;
           })}
-        </div> : <div className="mt-5 rounded-2xl rounded-2xl border border-dashed border-white/15 bg-[#101010] p-10 text-center text-sm text-gray-400">No categories match that search.</div>}
+        </div> : <div className="mt-5 rounded-2xl border border-dashed border-white/15 bg-[#101010] p-10 text-center text-sm text-gray-400">No categories match that search.</div>}
       </section>
 
       <section className="mx-auto max-w-7xl px-4 pb-12 sm:px-6 lg:px-8">
