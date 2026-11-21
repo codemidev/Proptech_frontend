@@ -532,7 +532,7 @@ export function PropertyReviewStep({
               onChange={(event) =>
                 onRequestAeroInspectionChange?.(event.target.checked)
               }
-              className="mt-1 h-4 w-4 rounded border-slate-300 accent-yellow-400"
+              className="mt-1 h-5 w-5 shrink-0 appearance-auto cursor-pointer rounded border-slate-300 accent-yellow-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow-500 disabled:cursor-not-allowed"
             />
             <div className="min-w-0">
               <label
