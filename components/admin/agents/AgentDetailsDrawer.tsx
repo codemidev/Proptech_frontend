@@ -90,6 +90,7 @@ export function AgentDetailsDrawer({
     setManualNin("");
     setNinNotice("");
     setRevealedNins({});
+    setVerificationDrafts({});
   }, [open, agent?.id]);
 
   useEffect(() => {
@@ -195,9 +196,14 @@ export function AgentDetailsDrawer({
       }, getToken);
       setNinNotice(
         result.data.ninVerificationOutcome === "VERIFIED"
-          ? "NIN check recorded as verified. You can now complete the separate KYC approval."
+          ? "Admin-confirmed NIN match recorded. Complete the separate KYC approval to finish the review."
           : "NIN check recorded. The KYC remains under review and the agent is not verified.",
       );
+      setVerificationDrafts((current) => {
+        const next = { ...current };
+        delete next[submissionId];
+        return next;
+      });
       await loadKyc();
     } catch (error) {
       setKycError(error instanceof Error ? error.message : "Unable to record the NIN verification.");
@@ -219,6 +225,7 @@ export function AgentDetailsDrawer({
       const result = await setAgentNinManually(agent!.id, value, getToken);
       setManualNin("");
       setNinNotice(result.message || "NIN saved securely and queued for review.");
+      setVerificationDrafts({});
       await loadKyc();
     } catch (error) {
       setKycError(error instanceof Error ? error.message : "Unable to save agent NIN.");
@@ -388,8 +395,8 @@ export function AgentDetailsDrawer({
                     <label className="mt-3 block text-xs font-semibold text-slate-700">Verification reference (optional)
                       <input value={verificationDrafts[s.id]?.reference ?? s.ninVerificationReference ?? ""} onChange={(event) => updateNinVerificationDraft(s.id, "reference", event.target.value)} maxLength={160} placeholder="Official transaction / reference number" className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-normal text-slate-900" />
                     </label>
-                    <label className="mt-3 block text-xs font-semibold text-slate-700">Notes {((verificationDrafts[s.id]?.outcome ?? s.ninVerificationOutcome ?? "VERIFIED") !== "VERIFIED") ? "(required)" : "(optional)"}
-                      <textarea value={verificationDrafts[s.id]?.notes ?? s.ninVerificationNotes ?? ""} onChange={(event) => updateNinVerificationDraft(s.id, "notes", event.target.value)} maxLength={1000} rows={2} placeholder="Record the match result or explain why verification was unsuccessful." className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-normal text-slate-900" />
+                    <label className="mt-3 block text-xs font-semibold text-slate-700">Notes (required)
+                      <textarea value={verificationDrafts[s.id]?.notes ?? s.ninVerificationNotes ?? ""} onChange={(event) => updateNinVerificationDraft(s.id, "notes", event.target.value)} maxLength={1000} rows={2} placeholder="Record which identity details matched, or explain why verification was unsuccessful. Do not enter the full NIN here." className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-normal text-slate-900" />
                     </label>
                     <button type="button" onClick={() => void recordNinCheck(s.id)} disabled={Boolean(kycBusy)} className="mt-3 w-full rounded-lg bg-[#FACC15] px-4 py-2.5 text-sm font-bold text-[#1A3C6E] disabled:cursor-not-allowed disabled:opacity-50">{kycBusy === `nin-verification-${s.id}` ? "Recording verification…" : "Record NIN verification result"}</button>
                   </div>
@@ -405,7 +412,7 @@ export function AgentDetailsDrawer({
                 {s.reviewedAt && <p className="mt-3 text-xs text-slate-500">Last reviewed {new Date(s.reviewedAt).toLocaleString()}{s.reviewer ? ` · By ${[s.reviewer.firstName,s.reviewer.lastName].filter(Boolean).join(" ") || s.reviewer.email}` : ""}</p>}
               </div>)}
             </div>
-            <div className="mt-5 border-t border-slate-200 pt-4"><h4 className="text-sm font-bold text-slate-900">KYC activity history</h4>{kycAuditError && <p className="mt-2 text-xs text-amber-700">Activity history unavailable: {kycAuditError}</p>}{!loadingKyc && !kycAuditError && !kycAuditEvents.length && <p className="mt-2 text-xs text-slate-500">No KYC audit activity recorded yet.</p>}<ol className="mt-3 space-y-2">{kycAuditEvents.map(e => <li key={e.id} className="rounded-lg border border-slate-200 p-3"><p className="text-xs font-bold text-slate-800">{e.description || e.action.replaceAll("_"," ")}</p><p className="mt-1 text-xs text-slate-500">{new Date(e.createdAt).toLocaleString()} · {[e.actor?.firstName,e.actor?.lastName].filter(Boolean).join(" ") || e.actor?.email || "System"}</p>{e.metadata.reason && <p className="mt-2 text-xs text-amber-800">Reason: {e.metadata.reason}</p>}</li>)}</ol></div>
+            <div className="mt-5 border-t border-slate-200 pt-4"><h4 className="text-sm font-bold text-slate-900">KYC activity history</h4>{kycAuditError && <p className="mt-2 text-xs text-amber-700">Activity history unavailable: {kycAuditError}</p>}{!loadingKyc && !kycAuditError && !kycAuditEvents.length && <p className="mt-2 text-xs text-slate-500">No KYC audit activity recorded yet.</p>}<ol className="mt-3 space-y-2">{kycAuditEvents.map(e => <li key={e.id} className="rounded-lg border border-slate-200 p-3"><p className="text-xs font-bold text-slate-800">{e.description || e.action.replaceAll("_"," ")}</p><p className="mt-1 text-xs text-slate-500">{new Date(e.createdAt).toLocaleString()} · {[e.actor?.firstName,e.actor?.lastName].filter(Boolean).join(" ") || e.actor?.email || "System"}</p>{e.metadata.reason && <p className="mt-2 text-xs text-amber-800">Reason: {e.metadata.reason}</p>}{e.metadata.event === "NIN_VERIFICATION_RECORDED" && <p className="mt-2 text-xs text-slate-600">NIN check: {e.metadata.outcome?.replaceAll("_", " ")} · {e.metadata.method?.replaceAll("_", " ")}{e.metadata.reference ? ` · Ref: ${e.metadata.reference}` : ""}{e.metadata.notes ? ` · Notes: ${e.metadata.notes}` : ""}</p>}</li>)}</ol></div>
           </section>
           <div>
             <h3 className="text-sm font-bold text-slate-900">Administrative actions</h3>
