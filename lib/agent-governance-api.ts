@@ -228,6 +228,12 @@ export type AdminAgentKycSubmission = {
   reviewedAt: string | null;
   reviewReason: string | null;
   ninLast4: string | null;
+  ninVerificationMethod: string | null;
+  ninVerificationOutcome: string | null;
+  ninVerificationReference: string | null;
+  ninVerificationNotes: string | null;
+  ninVerificationAt: string | null;
+  ninVerifier: { id: string; firstName: string | null; lastName: string | null; email: string } | null;
   agent: {
     id: string;
     email: string;
@@ -271,6 +277,12 @@ export type AdminAgentKycAuditEvent = {
     newStatus: string | null;
     reason: string | null;
     documentId: string | null;
+    event: string | null;
+    method: string | null;
+    outcome: string | null;
+    reference: string | null;
+    notes: string | null;
+    verifiedAt: string | null;
   };
 };
 
@@ -299,6 +311,30 @@ export async function reviewAgentKyc(
     `/api/v1/admin/dashboard/agents/kyc/${encodeURIComponent(submissionId)}/review`,
     getToken,
     { method: "PATCH", body: JSON.stringify({ status, reason }) },
+  );
+}
+
+export async function recordAgentNinVerification(
+  submissionId: string,
+  input: {
+    method: "OFFICIAL_PORTAL" | "AUTHORIZED_APP" | "PHYSICAL_VERIFICATION" | "OTHER";
+    outcome: "VERIFIED" | "NOT_VERIFIED" | "UNABLE_TO_VERIFY";
+    reference?: string;
+    notes?: string;
+  },
+  getToken: GetToken,
+) {
+  return apiFetch<{ success: boolean; data: {
+    id: string;
+    ninVerificationMethod: string;
+    ninVerificationOutcome: string;
+    ninVerificationReference: string | null;
+    ninVerificationNotes: string | null;
+    ninVerificationAt: string;
+  } }>(
+    `/api/v1/admin/dashboard/agents/kyc/${encodeURIComponent(submissionId)}/nin-verification`,
+    getToken,
+    { method: "POST", body: JSON.stringify(input) },
   );
 }
 
