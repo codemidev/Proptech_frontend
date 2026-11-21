@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { UserButton, useAuth, useUser } from "@clerk/nextjs";
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
@@ -357,13 +358,7 @@ export default function AdminDashboard() {
                 label="Organizations"
               />
 
-              <SidebarItem
-                icon={<ShieldIcon />}
-                label="Executive Invitations"
-                onClick={() => {
-                  window.location.href = "/dashboard/admin/invitations";
-                }}
-              />
+
 
               <SidebarItem
                 icon={<ShieldIcon />}
@@ -903,7 +898,14 @@ function PropertyReviewRow({
           </div>
         </div>
 
-        <div className="flex shrink-0 gap-2">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <Link
+            href={`/dashboard/admin/properties/verify/${property.id}`}
+            className="rounded-xl border border-[#1A3C6E] px-4 py-2.5 text-xs font-semibold text-[#1A3C6E] transition hover:bg-blue-50"
+          >
+            View details
+          </Link>
+
           <button
             disabled={loading}
             onClick={onReject}
