@@ -8,7 +8,8 @@ import type { AdminAgent } from "@/lib/agent-governance";
 import { agentDisplayName } from "@/lib/agent-governance";
 import {
   getAgentKycQueue, getAgentKycAuditHistory, reviewAgentKyc, revealAgentNin,
-  getAgentKycDocumentUrl, setAgentNinManually, type AdminAgentKycSubmission, type AdminAgentKycAuditEvent,
+  getAgentKycDocumentUrl, setAgentNinManually, recordAgentNinVerification,
+  type AdminAgentKycSubmission, type AdminAgentKycAuditEvent,
 } from "@/lib/agent-governance-api";
 import { AgentStatusBadge } from "./AgentStatusBadge";
 import { AgentTierBadge } from "./AgentTierBadge";
@@ -60,6 +61,9 @@ export function AgentDetailsDrawer({
   const [revealedNins, setRevealedNins] = useState<Record<string, string>>({});
   const [manualNin, setManualNin] = useState("");
   const [ninNotice, setNinNotice] = useState("");
+  const [verificationDrafts, setVerificationDrafts] = useState<Record<string, {
+    method: string; outcome: string; reference: string; notes: string;
+  }>>({});
 
   const loadKyc = useCallback(async () => {
     if (!agent) return;
@@ -79,13 +83,14 @@ export function AgentDetailsDrawer({
 
   useEffect(() => {
     if (open && agent) void loadKyc();
-    if (!open) { setSubmissions([]); setKycAuditEvents([]); setKycAuditError(""); setRevealedNins({}); setManualNin(""); setNinNotice(""); setKycError(""); }
+    if (!open) { setSubmissions([]); setKycAuditEvents([]); setKycAuditError(""); setRevealedNins({}); setManualNin(""); setNinNotice(""); setVerificationDrafts({}); setKycError(""); }
   }, [open, agent?.id, loadKyc]);
 
   useEffect(() => {
     setManualNin("");
     setNinNotice("");
     setRevealedNins({});
+    setVerificationDrafts({});
   }, [open, agent?.id]);
 
   useEffect(() => {
@@ -152,6 +157,61 @@ export function AgentDetailsDrawer({
     catch (error) { setKycError(error instanceof Error ? error.message : "KYC review failed."); }
     finally { setKycBusy(""); }
   }
+  function updateNinVerificationDraft(
+    submissionId: string,
+    field: "method" | "outcome" | "reference" | "notes",
+    value: string,
+  ) {
+    setVerificationDrafts((current) => {
+      const existing = current[submissionId] ?? {
+        method: "OFFICIAL_PORTAL",
+        outcome: "VERIFIED",
+        reference: "",
+        notes: "",
+      };
+      return { ...current, [submissionId]: { ...existing, [field]: value } };
+    });
+  }
+
+  async function recordNinCheck(submissionId: string) {
+    const draft = verificationDrafts[submissionId] ?? {
+      method: "OFFICIAL_PORTAL",
+      outcome: "VERIFIED",
+      reference: "",
+      notes: "",
+    };
+    if (!draft.notes.trim()) {
+      setKycError("Add a note describing the identity match or verification result.");
+      return;
+    }
+    setKycBusy(`nin-verification-${submissionId}`);
+    setKycError("");
+    setNinNotice("");
+    try {
+      const result = await recordAgentNinVerification(submissionId, {
+        method: draft.method as "OFFICIAL_PORTAL" | "AUTHORIZED_APP" | "PHYSICAL_VERIFICATION" | "OTHER",
+        outcome: draft.outcome as "VERIFIED" | "NOT_VERIFIED" | "UNABLE_TO_VERIFY",
+        reference: draft.reference.trim(),
+        notes: draft.notes.trim(),
+      }, getToken);
+      setNinNotice(
+        result.data.ninVerificationOutcome === "VERIFIED"
+          ? "Admin-confirmed NIN match recorded. Complete the separate KYC approval to finish the review."
+          : "NIN check recorded. The KYC remains under review and the agent is not verified.",
+      );
+      setVerificationDrafts((current) => {
+        const next = { ...current };
+        delete next[submissionId];
+        return next;
+      });
+      await loadKyc();
+    } catch (error) {
+      setKycError(error instanceof Error ? error.message : "Unable to record the NIN verification.");
+    } finally {
+      setKycBusy("");
+    }
+  }
+
   async function saveManualNin() {
     const value = manualNin.trim();
     if (!/^\d{11}$/.test(value)) {
@@ -165,6 +225,7 @@ export function AgentDetailsDrawer({
       const result = await setAgentNinManually(agent!.id, value, getToken);
       setManualNin("");
       setNinNotice(result.message || "NIN saved securely and queued for review.");
+      setVerificationDrafts({});
       await loadKyc();
     } catch (error) {
       setKycError(error instanceof Error ? error.message : "Unable to save agent NIN.");
@@ -301,14 +362,57 @@ export function AgentDetailsDrawer({
                 <div className="mt-3 text-sm"><span className="text-slate-500">National Identification Number (NIN)</span><div className="mt-1 flex flex-wrap items-center gap-2"><span className="font-mono font-semibold text-slate-900">{revealedNins[s.id] || (s.ninLast4 ? `•••••••${s.ninLast4}` : "Not submitted")}</span>{s.ninLast4 && !revealedNins[s.id] && <button type="button" onClick={() => void showNin(s.id)} disabled={Boolean(kycBusy)} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-700"><Eye size={13}/> Reveal NIN</button>}</div></div>
                 <div className="mt-4"><p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Submitted identity documents</p>{!s.documents.length && <p className="text-sm text-slate-500">No documents attached.</p>}<div className="space-y-2">{s.documents.map(d => <div key={d.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 p-3"><div className="flex min-w-0 items-center gap-2"><FileText size={17}/><div className="min-w-0"><p className="break-all text-sm font-medium text-slate-800">{d.originalName}</p><p className="text-xs text-slate-500">{d.documentType.replaceAll("_"," ")} · {(d.fileSize/1024).toFixed(0)} KB</p></div></div><button type="button" onClick={() => void openKycDocument(d.id)} disabled={Boolean(kycBusy)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700">{kycBusy===d.id ? "Opening…" : "View document"}</button></div>)}</div></div>
                 {s.reviewReason && <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Review note: {s.reviewReason}</p>}
+                {s.ninVerificationAt && (
+                  <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+                    <p className="font-bold">Latest admin NIN check: {s.ninVerificationOutcome?.replaceAll("_", " ")}</p>
+                    <p className="mt-1">Method: {s.ninVerificationMethod?.replaceAll("_", " ") || "Not recorded"} · {new Date(s.ninVerificationAt).toLocaleString()}</p>
+                    {s.ninVerifier && <p className="mt-1">Recorded by: {[s.ninVerifier.firstName, s.ninVerifier.lastName].filter(Boolean).join(" ") || s.ninVerifier.email}</p>}
+                    {s.ninVerificationReference && <p className="mt-1">Reference: {s.ninVerificationReference}</p>}
+                    {s.ninVerificationNotes && <p className="mt-1">Notes: {s.ninVerificationNotes}</p>}
+                  </div>
+                )}
+                {s.status === "UNDER_REVIEW" && s.ninLast4 && (
+                  <div className="mt-4 rounded-xl border border-[#1A3C6E]/15 bg-white p-4">
+                    <h4 className="text-sm font-bold text-[#1A3C6E]">Admin-assisted NIN verification</h4>
+                    <p className="mt-1 text-xs leading-5 text-slate-600">Use an official NIN verification channel or an authorized application on your device. Compare the returned identity with this agent's records before recording the result. Do not mark a number verified based only on its format or appearance.</p>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      <label className="text-xs font-semibold text-slate-700">Verification method
+                        <select value={verificationDrafts[s.id]?.method ?? s.ninVerificationMethod ?? "OFFICIAL_PORTAL"} onChange={(event) => updateNinVerificationDraft(s.id, "method", event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-normal text-slate-900">
+                          <option value="OFFICIAL_PORTAL">Official verification portal</option>
+                          <option value="AUTHORIZED_APP">Authorized mobile app</option>
+                          <option value="PHYSICAL_VERIFICATION">In-person / physical verification</option>
+                          <option value="OTHER">Other approved channel</option>
+                        </select>
+                      </label>
+                      <label className="text-xs font-semibold text-slate-700">Verification outcome
+                        <select value={verificationDrafts[s.id]?.outcome ?? s.ninVerificationOutcome ?? "VERIFIED"} onChange={(event) => updateNinVerificationDraft(s.id, "outcome", event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-normal text-slate-900">
+                          <option value="VERIFIED">Verified — identity matched</option>
+                          <option value="NOT_VERIFIED">Not verified — mismatch</option>
+                          <option value="UNABLE_TO_VERIFY">Unable to verify</option>
+                        </select>
+                      </label>
+                    </div>
+                    <label className="mt-3 block text-xs font-semibold text-slate-700">Verification reference (optional)
+                      <input value={verificationDrafts[s.id]?.reference ?? s.ninVerificationReference ?? ""} onChange={(event) => updateNinVerificationDraft(s.id, "reference", event.target.value)} maxLength={160} placeholder="Official transaction / reference number" className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-normal text-slate-900" />
+                    </label>
+                    <label className="mt-3 block text-xs font-semibold text-slate-700">Notes (required)
+                      <textarea value={verificationDrafts[s.id]?.notes ?? s.ninVerificationNotes ?? ""} onChange={(event) => updateNinVerificationDraft(s.id, "notes", event.target.value)} maxLength={1000} rows={2} placeholder="Record which identity details matched, or explain why verification was unsuccessful. Do not enter the full NIN here." className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-normal text-slate-900" />
+                    </label>
+                    <button type="button" onClick={() => void recordNinCheck(s.id)} disabled={Boolean(kycBusy)} className="mt-3 w-full rounded-lg bg-[#FACC15] px-4 py-2.5 text-sm font-bold text-[#1A3C6E] disabled:cursor-not-allowed disabled:opacity-50">{kycBusy === `nin-verification-${s.id}` ? "Recording verification…" : "Record NIN verification result"}</button>
+                  </div>
+                )}
                 <div className="mt-4 flex flex-wrap gap-2">
                   {(s.status==="PENDING" || s.status==="MORE_INFO_REQUIRED") && <button type="button" onClick={() => void decideKyc(s.id,"UNDER_REVIEW")} disabled={Boolean(kycBusy)} className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white">Start review</button>}
-                  {s.status==="UNDER_REVIEW" && <><button type="button" onClick={() => void decideKyc(s.id,"VERIFIED")} disabled={Boolean(kycBusy)} className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white">Verify NIN identity</button><button type="button" onClick={() => void decideKyc(s.id,"MORE_INFO_REQUIRED")} disabled={Boolean(kycBusy)} className="rounded-lg border border-amber-300 px-3 py-2 text-xs font-semibold text-amber-800">Request more information</button><button type="button" onClick={() => void decideKyc(s.id,"REJECTED")} disabled={Boolean(kycBusy)} className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-700">Reject KYC</button></>}
+                  {s.status==="UNDER_REVIEW" && <>
+                    <button type="button" onClick={() => void decideKyc(s.id,"VERIFIED")} disabled={Boolean(kycBusy) || s.ninVerificationOutcome !== "VERIFIED" || !s.ninVerificationAt} title={s.ninVerificationOutcome !== "VERIFIED" || !s.ninVerificationAt ? "Record a successful admin-assisted NIN check first" : undefined} className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">Approve KYC</button>
+                    <button type="button" onClick={() => void decideKyc(s.id,"MORE_INFO_REQUIRED")} disabled={Boolean(kycBusy)} className="rounded-lg border border-amber-300 px-3 py-2 text-xs font-semibold text-amber-800">Request more information</button>
+                    <button type="button" onClick={() => void decideKyc(s.id,"REJECTED")} disabled={Boolean(kycBusy)} className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-700">Reject KYC</button>
+                  </>}
                 </div>
                 {s.reviewedAt && <p className="mt-3 text-xs text-slate-500">Last reviewed {new Date(s.reviewedAt).toLocaleString()}{s.reviewer ? ` · By ${[s.reviewer.firstName,s.reviewer.lastName].filter(Boolean).join(" ") || s.reviewer.email}` : ""}</p>}
               </div>)}
             </div>
-            <div className="mt-5 border-t border-slate-200 pt-4"><h4 className="text-sm font-bold text-slate-900">KYC activity history</h4>{kycAuditError && <p className="mt-2 text-xs text-amber-700">Activity history unavailable: {kycAuditError}</p>}{!loadingKyc && !kycAuditError && !kycAuditEvents.length && <p className="mt-2 text-xs text-slate-500">No KYC audit activity recorded yet.</p>}<ol className="mt-3 space-y-2">{kycAuditEvents.map(e => <li key={e.id} className="rounded-lg border border-slate-200 p-3"><p className="text-xs font-bold text-slate-800">{e.description || e.action.replaceAll("_"," ")}</p><p className="mt-1 text-xs text-slate-500">{new Date(e.createdAt).toLocaleString()} · {[e.actor?.firstName,e.actor?.lastName].filter(Boolean).join(" ") || e.actor?.email || "System"}</p>{e.metadata.reason && <p className="mt-2 text-xs text-amber-800">Reason: {e.metadata.reason}</p>}</li>)}</ol></div>
+            <div className="mt-5 border-t border-slate-200 pt-4"><h4 className="text-sm font-bold text-slate-900">KYC activity history</h4>{kycAuditError && <p className="mt-2 text-xs text-amber-700">Activity history unavailable: {kycAuditError}</p>}{!loadingKyc && !kycAuditError && !kycAuditEvents.length && <p className="mt-2 text-xs text-slate-500">No KYC audit activity recorded yet.</p>}<ol className="mt-3 space-y-2">{kycAuditEvents.map(e => <li key={e.id} className="rounded-lg border border-slate-200 p-3"><p className="text-xs font-bold text-slate-800">{e.description || e.action.replaceAll("_"," ")}</p><p className="mt-1 text-xs text-slate-500">{new Date(e.createdAt).toLocaleString()} · {[e.actor?.firstName,e.actor?.lastName].filter(Boolean).join(" ") || e.actor?.email || "System"}</p>{e.metadata.reason && <p className="mt-2 text-xs text-amber-800">Reason: {e.metadata.reason}</p>}{e.metadata.event === "NIN_VERIFICATION_RECORDED" && <p className="mt-2 text-xs text-slate-600">NIN check: {e.metadata.outcome?.replaceAll("_", " ")} · {e.metadata.method?.replaceAll("_", " ")}{e.metadata.reference ? ` · Ref: ${e.metadata.reference}` : ""}{e.metadata.notes ? ` · Notes: ${e.metadata.notes}` : ""}</p>}</li>)}</ol></div>
           </section>
           <div>
             <h3 className="text-sm font-bold text-slate-900">Administrative actions</h3>
