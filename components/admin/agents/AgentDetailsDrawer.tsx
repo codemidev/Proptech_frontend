@@ -180,8 +180,8 @@ export function AgentDetailsDrawer({
       reference: "",
       notes: "",
     };
-    if (draft.outcome !== "VERIFIED" && !draft.notes.trim()) {
-      setKycError("Add a note explaining why the NIN could not be verified.");
+    if (!draft.notes.trim()) {
+      setKycError("Add a note describing the identity match or verification result.");
       return;
     }
     setKycBusy(`nin-verification-${submissionId}`);
