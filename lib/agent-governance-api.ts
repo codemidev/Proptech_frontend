@@ -23,6 +23,7 @@ function normalizeAgent(value: unknown): AdminAgent | null {
 
   return {
     id: item.id,
+    fieldId: typeof item.fieldId === "string" ? item.fieldId : null,
     clerkId: typeof item.clerkId === "string" ? item.clerkId : null,
     email: item.email,
     firstName: typeof item.firstName === "string" ? item.firstName : null,

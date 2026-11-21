@@ -15,7 +15,7 @@ export function AgentRow({ agent, onManage }: { agent: AdminAgent; onManage: (ag
           <div className="min-w-0">
             <p className="font-semibold text-slate-900">{agentDisplayName(agent)}</p>
             <p className="max-w-[250px] truncate text-sm text-slate-500">{agent.email}</p>
-            <p className="mt-0.5 text-[11px] text-slate-400">{agent.id}</p>
+            <p className="mt-1 text-xs font-semibold text-[#1A3C6E]">{agent.fieldId ? `Field ID: ${agent.fieldId}` : "Field ID: Not issued yet"}</p><p className="text-[10px] text-slate-400">Record: {agent.id}</p>
           </div>
         </div>
       </td>

@@ -60,7 +60,7 @@ export function AgentGovernancePage() {
   const filtered = useMemo(() => {
     const q = filters.search.trim().toLowerCase();
     return agents.filter((agent) => {
-      const searchMatch = !q || [agent.email, agent.firstName, agent.lastName, agent.id, agent.organization?.name, agent.organization?.slug].filter(Boolean).some((v) => String(v).toLowerCase().includes(q));
+      const searchMatch = !q || [agent.email, agent.firstName, agent.lastName, agent.id, agent.fieldId, agent.organization?.name, agent.organization?.slug].filter(Boolean).some((v) => String(v).toLowerCase().includes(q));
       const statusMatch = filters.status === "ALL" || agent.status === filters.status;
       const tierMatch = filters.tier === "ALL" || (filters.tier === "UNASSIGNED" ? !agent.agentClearanceTier : agent.agentClearanceTier === filters.tier);
       const verificationMatch = filters.verification === "ALL" || (filters.verification === "VERIFIED" ? agent.isVerified : !agent.isVerified);
